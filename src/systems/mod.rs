@@ -1,6 +1,5 @@
-pub mod people;
 pub mod hello;
+pub mod people;
 
-pub use people::{add_people, greet_people, update_people};
-pub use hello::hello_world;
 
+pub use people::{GreetTimer, add_people, greet_people, update_people};
