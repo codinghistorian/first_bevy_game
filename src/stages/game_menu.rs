@@ -166,10 +166,12 @@ pub fn spawn_in_game_screen(
     };
 
     // Spawn the player character as a rectangle
+    // Floor top is at y = -230 (floor center -250 + half-height 20)
+    // Character center should be at floor top + character half-height = -230 + 32 = -198
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::new(32.0, 64.0))), // 32x64 rectangle
         MeshMaterial2d(materials.add(character_color)),
-        Transform::from_xyz(0.0, -150.0, 1.0), // Position above the floor
+        Transform::from_xyz(0.0, -198.0, 1.0), // Positioned on top of the floor
         Player,
     ));
 
