@@ -41,6 +41,14 @@ pub struct CharacterSelectionMenu;
 #[derive(Component)]
 pub struct InGameScreen;
 
+/// Marker component for the player character
+#[derive(Component)]
+pub struct Player;
+
+/// Marker component for the floor/platform
+#[derive(Component)]
+pub struct Floor;
+
 /// Spawns a UI camera for rendering
 pub fn spawn_ui_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
@@ -141,32 +149,67 @@ pub fn spawn_character_selection_menu(mut commands: Commands) {
         });
 }
 
-/// Spawns the ingame screen UI when entering the InGame state
-pub fn spawn_in_game_screen(mut commands: Commands) {
-    commands
-        .spawn((
-            Node {
-                width: percent(100.0),
-                height: percent(100.0),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                row_gap: px(20.0),
-                ..default()
-            },
-            BackgroundColor(Color::srgb(0.2, 0.4, 0.8)),
-            InGameScreen,
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new("ingameState"),
-                TextFont {
-                    font_size: 48.0,
-                    ..default()
-                },
-                TextColor(WHITE.into()),
-            ));
-        });
+/// Spawns the ingame 2D game scene when entering the InGame state
+pub fn spawn_in_game_screen(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    selected_character: Res<SelectedCharacter>,
+) {
+    // Spawn game camera (separate from UI camera)
+    commands.spawn(Camera2d);
+
+    // Determine character color based on selection
+    let character_color = match *selected_character {
+        SelectedCharacter::Megaman => Color::srgb(0.2, 0.4, 0.9), // Blue
+        SelectedCharacter::Protoman => Color::srgb(0.9, 0.2, 0.2), // Red
+    };
+
+    // Spawn the player character as a rectangle
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::new(32.0, 64.0))), // 32x64 rectangle
+        MeshMaterial2d(materials.add(character_color)),
+        Transform::from_xyz(0.0, -150.0, 1.0), // Position above the floor
+        Player,
+    ));
+
+    // Spawn the floor/platform at the bottom
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::new(800.0, 40.0))), // Wide floor
+        MeshMaterial2d(materials.add(Color::srgb(0.3, 0.3, 0.3))), // Gray floor
+        Transform::from_xyz(0.0, -250.0, 0.0), // Position at bottom
+        Floor,
+    ));
+
+    // Background color via clear color (black)
+    commands.insert_resource(ClearColor(Color::BLACK));
+}
+
+/// Handles player movement (left/right) in the game
+pub fn player_movement(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut player_query: Query<&mut Transform, With<Player>>,
+) {
+    const SPEED: f32 = 200.0; // Pixels per second
+
+    for mut transform in &mut player_query {
+        let mut direction = 0.0;
+
+        if keyboard_input.pressed(KeyCode::ArrowLeft) {
+            direction -= 1.0;
+        }
+        if keyboard_input.pressed(KeyCode::ArrowRight) {
+            direction += 1.0;
+        }
+
+        if direction != 0.0 {
+            transform.translation.x += direction * SPEED * time.delta_secs();
+            
+            // Optional: Keep player within screen bounds (adjust as needed)
+            transform.translation.x = transform.translation.x.clamp(-350.0, 350.0);
+        }
+    }
 }
 
 /// Handles keyboard input for character selection
@@ -253,8 +296,12 @@ impl Plugin for GameMenuPlugin {
             )
             .add_systems(OnEnter(GameState::InGame), spawn_in_game_screen)
             .add_systems(
+                Update,
+                player_movement.run_if(in_state(GameState::InGame)),
+            )
+            .add_systems(
                 OnExit(GameState::InGame),
-                despawn_screen::<InGameScreen>,
+                (despawn_screen::<Player>, despawn_screen::<Floor>),
             );
     }
 }
