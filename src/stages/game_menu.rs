@@ -41,6 +41,11 @@ pub struct CharacterSelectionMenu;
 #[derive(Component)]
 pub struct InGameScreen;
 
+/// Spawns a UI camera for rendering
+pub fn spawn_ui_camera(mut commands: Commands) {
+    commands.spawn(Camera2d);
+}
+
 /// Spawns the character selection menu UI when entering the CharacterSelection state
 pub fn spawn_character_selection_menu(mut commands: Commands) {
     // Create two character boxes
@@ -236,6 +241,7 @@ pub struct GameMenuPlugin;
 impl Plugin for GameMenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectedCharacterIndex>()
+            .add_systems(Startup, spawn_ui_camera)
             .add_systems(OnEnter(GameState::CharacterSelection), spawn_character_selection_menu)
             .add_systems(
                 Update,
