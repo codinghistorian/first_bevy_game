@@ -29,6 +29,10 @@ pub enum CharacterButton {
     Protoman,
 }
 
+/// Resource to track which character box is currently selected (0 = Megaman, 1 = Protoman)
+#[derive(Resource, Default)]
+pub struct SelectedCharacterIndex(pub usize);
+
 /// Marker component for the character selection menu UI root
 #[derive(Component)]
 pub struct CharacterSelectionMenu;
@@ -39,6 +43,64 @@ pub struct InGameScreen;
 
 /// Spawns the character selection menu UI when entering the CharacterSelection state
 pub fn spawn_character_selection_menu(mut commands: Commands) {
+    // Create two character boxes
+    let megaman_entity = commands.spawn((
+        Button,
+        Node {
+            width: px(250.0),
+            height: px(300.0),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            row_gap: px(20.0),
+            padding: UiRect::all(px(20.0)),
+            border: UiRect::all(px(8.0)), // Thicker border for better visibility
+            ..default()
+        },
+        BackgroundColor(Color::srgb(0.2, 0.4, 0.9)),
+        BorderColor::all(Color::srgb(1.0, 0.8, 0.0)), // Start with glow (Megaman is default selected)
+        CharacterButton::Megaman,
+    )).with_children(|parent| {
+        // Character name
+        parent.spawn((
+            Text::new("Megaman"),
+            TextFont {
+                font_size: 36.0,
+                ..default()
+            },
+            TextColor(WHITE.into()),
+        ));
+    }).id();
+
+    let protoman_entity = commands.spawn((
+        Button,
+        Node {
+            width: px(250.0),
+            height: px(300.0),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            row_gap: px(20.0),
+            padding: UiRect::all(px(20.0)),
+            border: UiRect::all(px(8.0)), // Thicker border for better visibility
+            ..default()
+        },
+        BackgroundColor(Color::srgb(0.9, 0.2, 0.2)),
+        BorderColor::all(Color::srgb(0.7, 0.1, 0.1)), // Not selected
+        CharacterButton::Protoman,
+    )).with_children(|parent| {
+        // Character name
+        parent.spawn((
+            Text::new("Protoman"),
+            TextFont {
+                font_size: 36.0,
+                ..default()
+            },
+            TextColor(WHITE.into()),
+        ));
+    }).id();
+
+    // Create the root menu container
     commands
         .spawn((
             Node {
@@ -64,102 +126,18 @@ pub fn spawn_character_selection_menu(mut commands: Commands) {
                 TextColor(BLACK.into()),
             ));
 
-            // Button container
-            parent
-                .spawn(Node {
-                    flex_direction: FlexDirection::Row,
-                    column_gap: px(40.0),
-                    align_items: AlignItems::Center,
-                    ..default()
-                })
-                .with_children(|parent| {
-                    // Megaman colored box
-                    parent
-                        .spawn((
-                            Button,
-                            Node {
-                                width: px(250.0),
-                                height: px(300.0),
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                row_gap: px(20.0),
-                                padding: UiRect::all(px(20.0)),
-                                border: UiRect::all(px(4.0)),
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.2, 0.4, 0.9)),
-                            BorderColor::all(Color::srgb(0.1, 0.2, 0.7)),
-                            CharacterButton::Megaman,
-                        ))
-                        .with_children(|parent| {
-                            // Character name
-                            parent.spawn((
-                                Text::new("Megaman"),
-                                TextFont {
-                                    font_size: 36.0,
-                                    ..default()
-                                },
-                                TextColor(WHITE.into()),
-                            ));
-                            // Visual box indicator
-                            parent.spawn((
-                                Node {
-                                    width: px(180.0),
-                                    height: px(180.0),
-                                    ..default()
-                                },
-                                BackgroundColor(Color::srgb(0.3, 0.5, 1.0)),
-                                BorderColor::all(Color::srgb(0.1, 0.2, 0.7)),
-                            ));
-                        });
-
-                    // Protoman colored box
-                    parent
-                        .spawn((
-                            Button,
-                            Node {
-                                width: px(250.0),
-                                height: px(300.0),
-                                flex_direction: FlexDirection::Column,
-                                justify_content: JustifyContent::Center,
-                                align_items: AlignItems::Center,
-                                row_gap: px(20.0),
-                                padding: UiRect::all(px(20.0)),
-                                border: UiRect::all(px(4.0)),
-                                ..default()
-                            },
-                            BackgroundColor(Color::srgb(0.9, 0.2, 0.2)),
-                            BorderColor::all(Color::srgb(0.7, 0.1, 0.1)),
-                            CharacterButton::Protoman,
-                        ))
-                        .with_children(|parent| {
-                            // Character name
-                            parent.spawn((
-                                Text::new("Protoman"),
-                                TextFont {
-                                    font_size: 36.0,
-                                    ..default()
-                                },
-                                TextColor(WHITE.into()),
-                            ));
-                            // Visual box indicator
-                            parent.spawn((
-                                Node {
-                                    width: px(180.0),
-                                    height: px(180.0),
-                                    ..default()
-                                },
-                                BackgroundColor(Color::srgb(1.0, 0.3, 0.3)),
-                                BorderColor::all(Color::srgb(0.7, 0.1, 0.1)),
-                            ));
-                        });
-                });
+            // Button container with the two character boxes
+            parent.spawn(Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: px(40.0),
+                align_items: AlignItems::Center,
+                ..default()
+            }).add_child(megaman_entity).add_child(protoman_entity);
         });
 }
 
 /// Spawns the ingame screen UI when entering the InGame state
-pub fn spawn_in_game_screen(mut commands: Commands, selected_character: Res<SelectedCharacter>) {
+pub fn spawn_in_game_screen(mut commands: Commands) {
     commands
         .spawn((
             Node {
@@ -175,13 +153,8 @@ pub fn spawn_in_game_screen(mut commands: Commands, selected_character: Res<Sele
             InGameScreen,
         ))
         .with_children(|parent| {
-            // Character name display
-            let character_name = match *selected_character {
-                SelectedCharacter::Megaman => "Megaman",
-                SelectedCharacter::Protoman => "Protoman",
-            };
             parent.spawn((
-                Text::new(format!("Playing as: {}", character_name)),
+                Text::new("ingameState"),
                 TextFont {
                     font_size: 48.0,
                     ..default()
@@ -191,29 +164,64 @@ pub fn spawn_in_game_screen(mut commands: Commands, selected_character: Res<Sele
         });
 }
 
-/// Handles character selection button clicks
-pub fn handle_character_selection(
-    interaction_query: Query<
-        (&Interaction, &CharacterButton),
-        (Changed<Interaction>, With<Button>),
-    >,
+/// Handles keyboard input for character selection
+pub fn handle_keyboard_selection(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut selected_index: ResMut<SelectedCharacterIndex>,
+    mut border_query: Query<(&CharacterButton, &mut BorderColor)>,
     mut next_state: ResMut<NextState<GameState>>,
     mut selected_character: ResMut<SelectedCharacter>,
 ) {
-    for (interaction, button) in &interaction_query {
-        if *interaction == Interaction::Pressed {
+    // Handle left/right arrow keys to navigate
+    if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
+        if selected_index.0 > 0 {
+            selected_index.0 -= 1;
+        }
+    }
+    
+    if keyboard_input.just_pressed(KeyCode::ArrowRight) {
+        if selected_index.0 < 1 {
+            selected_index.0 += 1;
+        }
+    }
+
+    // Update border colors based on selection
+    for (button, mut border_color) in &mut border_query {
+        let is_selected = match button {
+            CharacterButton::Megaman => selected_index.0 == 0,
+            CharacterButton::Protoman => selected_index.0 == 1,
+        };
+
+        if is_selected {
+            // Glowing border (bright yellow/gold)
+            *border_color = BorderColor::all(Color::srgb(1.0, 0.9, 0.0));
+        } else {
+            // Normal border
             match button {
                 CharacterButton::Megaman => {
-                    *selected_character = SelectedCharacter::Megaman;
-                    info!("Selected character: Megaman");
+                    *border_color = BorderColor::all(Color::srgb(0.1, 0.2, 0.7));
                 }
                 CharacterButton::Protoman => {
-                    *selected_character = SelectedCharacter::Protoman;
-                    info!("Selected character: Protoman");
+                    *border_color = BorderColor::all(Color::srgb(0.7, 0.1, 0.1));
                 }
             }
-            next_state.set(GameState::InGame);
         }
+    }
+
+    // Handle Enter or Space to confirm selection
+    if keyboard_input.just_pressed(KeyCode::Enter) || keyboard_input.just_pressed(KeyCode::Space) {
+        match selected_index.0 {
+            0 => {
+                *selected_character = SelectedCharacter::Megaman;
+                info!("Selected character: Megaman");
+            }
+            1 => {
+                *selected_character = SelectedCharacter::Protoman;
+                info!("Selected character: Protoman");
+            }
+            _ => {}
+        }
+        next_state.set(GameState::InGame);
     }
 }
 
@@ -227,10 +235,11 @@ pub struct GameMenuPlugin;
 
 impl Plugin for GameMenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::CharacterSelection), spawn_character_selection_menu)
+        app.init_resource::<SelectedCharacterIndex>()
+            .add_systems(OnEnter(GameState::CharacterSelection), spawn_character_selection_menu)
             .add_systems(
                 Update,
-                handle_character_selection.run_if(in_state(GameState::CharacterSelection)),
+                handle_keyboard_selection.run_if(in_state(GameState::CharacterSelection)),
             )
             .add_systems(
                 OnExit(GameState::CharacterSelection),
