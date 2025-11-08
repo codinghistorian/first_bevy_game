@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use crate::components::boss::*;
 use crate::components::player::*;
+use crate::systems::config::{KNOCKBACK_FORCE, KNOCKBACK_DURATION};
 
 /// JSON structure for boss attack patterns
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -397,7 +398,7 @@ pub fn boss_projectile_movement(
 /// System to handle boss projectile collision with player
 pub fn boss_projectile_player_collision(
     mut commands: Commands,
-    projectile_query: Query<(Entity, &Transform), (With<BossProjectile>, Without<Player>)>,
+    projectile_query: Query<(Entity, &Transform, &Projectile), (With<BossProjectile>, Without<Player>)>,
     mut player_query: Query<(Entity, &Transform, &mut Hp, Option<&mut Invincibility>), With<Player>>,
     time: Res<Time>,
 ) {
@@ -406,7 +407,7 @@ pub fn boss_projectile_player_collision(
     const DAMAGE: f32 = 15.0;
     const INVINCIBILITY_DURATION: f32 = 0.5;
 
-    for (projectile_entity, projectile_transform) in &projectile_query {
+    for (projectile_entity, projectile_transform, projectile) in &projectile_query {
         for (player_entity, player_transform, mut player_hp, invincibility) in &mut player_query {
             // Check if player is invincible
             let is_invincible = if let Some(mut inv) = invincibility {
@@ -434,12 +435,22 @@ pub fn boss_projectile_player_collision(
                 && projectile_transform.translation.y - half_projectile.y < player_transform.translation.y + half_player.y
                 && projectile_transform.translation.y + half_projectile.y > player_transform.translation.y - half_player.y
             {
+                // Calculate knockback direction (opposite of projectile direction)
+                // The projectile is moving toward the player, so knockback pushes player away
+                let knockback_direction = -projectile.direction.normalize_or_zero();
+                
                 // Player takes damage
                 player_hp.current = (player_hp.current - DAMAGE).max(0.0);
                 
                 // Add invincibility frames
                 commands.entity(player_entity).insert(Invincibility {
                     timer: INVINCIBILITY_DURATION,
+                });
+                
+                // Add knockback effect
+                commands.entity(player_entity).insert(Knockback {
+                    velocity: knockback_direction * KNOCKBACK_FORCE,
+                    timer: KNOCKBACK_DURATION,
                 });
                 
                 // Despawn projectile
