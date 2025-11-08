@@ -584,7 +584,7 @@ pub fn apply_knockback(
 /// System to handle projectile-boss collision (boss takes damage, projectile despawns)
 pub fn projectile_boss_collision(
     mut commands: Commands,
-    projectile_query: Query<(Entity, &Transform), (With<Projectile>, Without<Boss>)>,
+    projectile_query: Query<(Entity, &Transform), (With<Projectile>, Without<Boss>, Without<ProjectileHasHit>, Without<crate::systems::boss::BossProjectile>)>,
     mut boss_query: Query<(&Transform, &mut Hp), With<Boss>>,
 ) {
     const PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
@@ -601,6 +601,9 @@ pub fn projectile_boss_collision(
             ) {
                 // Boss takes damage
                 boss_hp.current = (boss_hp.current - DAMAGE).max(0.0);
+                
+                // Mark projectile as hit (prevents multiple hits before despawn)
+                commands.entity(projectile_entity).insert(ProjectileHasHit);
                 
                 // Despawn projectile
                 commands.entity(projectile_entity).despawn();

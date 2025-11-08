@@ -57,6 +57,10 @@ pub struct Projectile {
     pub direction: Vec2,
 }
 
+/// Marker component to indicate a projectile has already hit something (prevents multiple hits)
+#[derive(Component)]
+pub struct ProjectileHasHit;
+
 /// Component to track shooting cooldown
 #[derive(Component)]
 pub struct Shooting {
