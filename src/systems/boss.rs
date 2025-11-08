@@ -102,9 +102,98 @@ impl BossPatternRegistry {
         Ok(())
     }
 
+    /// Load a pattern from a JSON file path
+    pub fn load_from_file(&mut self, name: String, file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let json = std::fs::read_to_string(file_path)?;
+        self.load_from_json(name, &json)?;
+        Ok(())
+    }
+
     /// Get a pattern by name
     pub fn get_pattern(&self, name: &str) -> Option<&BossPatternConfig> {
         self.patterns.get(name)
+    }
+}
+
+/// Convert JSON attack pattern config to internal AttackPattern
+pub fn convert_attack_pattern(config: &AttackPatternConfig) -> AttackPattern {
+    match config {
+        AttackPatternConfig::None => AttackPattern::None,
+        AttackPatternConfig::SingleShot { cooldown, projectile_speed } => {
+            AttackPattern::SingleShot {
+                cooldown: *cooldown,
+                projectile_speed: *projectile_speed,
+            }
+        }
+        AttackPatternConfig::TripleShot { cooldown, projectile_speed, spread_angle } => {
+            AttackPattern::TripleShot {
+                cooldown: *cooldown,
+                projectile_speed: *projectile_speed,
+                spread_angle: *spread_angle,
+            }
+        }
+        AttackPatternConfig::RapidFire { cooldown, projectile_speed, burst_count, burst_delay } => {
+            AttackPattern::RapidFire {
+                cooldown: *cooldown,
+                projectile_speed: *projectile_speed,
+                burst_count: *burst_count,
+                burst_delay: *burst_delay,
+            }
+        }
+        AttackPatternConfig::Sequence { .. } => {
+            // For now, treat sequence as None - can be extended later
+            AttackPattern::None
+        }
+    }
+}
+
+/// Convert JSON movement pattern config to internal MovementPattern
+pub fn convert_movement_pattern(config: &MovementPatternConfig) -> MovementPattern {
+    match config {
+        MovementPatternConfig::Stationary => MovementPattern::Stationary,
+        MovementPatternConfig::HorizontalPatrol { left_bound, right_bound, speed } => {
+            MovementPattern::HorizontalPatrol {
+                left_bound: *left_bound,
+                right_bound: *right_bound,
+                speed: *speed,
+            }
+        }
+        MovementPatternConfig::VerticalPatrol { top_bound, bottom_bound, speed } => {
+            MovementPattern::VerticalPatrol {
+                top_bound: *top_bound,
+                bottom_bound: *bottom_bound,
+                speed: *speed,
+            }
+        }
+        MovementPatternConfig::Circular { center, radius, speed } => {
+            MovementPattern::Circular {
+                center: center.clone().into(),
+                radius: *radius,
+                speed: *speed,
+            }
+        }
+        MovementPatternConfig::Waypoint { .. } => {
+            // For now, treat waypoint as Stationary - can be extended later
+            MovementPattern::Stationary
+        }
+    }
+}
+
+/// System to load boss pattern for the current stage
+pub fn load_stage_boss_pattern(
+    mut pattern_registry: ResMut<BossPatternRegistry>,
+    current_stage: Res<crate::stages::game_menu::CurrentStage>,
+) {
+    let stage_num = current_stage.0;
+    let pattern_name = format!("stage_{}", stage_num);
+    let file_path = format!("boss_patterns/stage_{}_boss.json", stage_num);
+    
+    // Only load if not already loaded
+    if pattern_registry.get_pattern(&pattern_name).is_none() {
+        if let Err(e) = pattern_registry.load_from_file(pattern_name.clone(), &file_path) {
+            eprintln!("Warning: Failed to load boss pattern from {}: {}", file_path, e);
+            eprintln!("Using default boss pattern instead");
+        }
     }
 }
 

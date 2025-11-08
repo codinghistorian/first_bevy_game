@@ -47,6 +47,10 @@ pub struct GameOverScreen;
 #[derive(Component)]
 pub struct GameWinScreen;
 
+/// Resource to track the current stage number (1-indexed)
+#[derive(Resource, Default)]
+pub struct CurrentStage(pub u32);
+
 /// Resource to store which boss was defeated (for win screen display)
 #[derive(Resource, Default)]
 pub struct DefeatedBoss {

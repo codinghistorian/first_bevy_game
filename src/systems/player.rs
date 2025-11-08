@@ -58,13 +58,29 @@ pub fn spawn_boss(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     boss_registry: Option<Res<BossRegistry>>,
+    pattern_registry: Option<Res<crate::systems::boss::BossPatternRegistry>>,
+    current_stage: Option<Res<crate::stages::game_menu::CurrentStage>>,
 ) {
+    use crate::systems::boss::{convert_attack_pattern, convert_movement_pattern};
+    
     // Get boss data from registry or use default
-    let boss_data = boss_registry
+    let mut boss_data = boss_registry
         .as_ref()
         .and_then(|registry| registry.get_boss_data(BossType::Default))
         .cloned()
         .unwrap_or_else(|| BossData::default());
+
+    // Try to load pattern from JSON based on stage number
+    if let (Some(registry), Some(stage)) = (pattern_registry.as_ref(), current_stage.as_ref()) {
+        let stage_num = stage.0;
+        let pattern_name = format!("stage_{}", stage_num);
+        
+        if let Some(pattern_config) = registry.get_pattern(&pattern_name) {
+            // Convert JSON patterns to internal patterns
+            boss_data.attack_pattern = convert_attack_pattern(&pattern_config.attack);
+            boss_data.movement_pattern = convert_movement_pattern(&pattern_config.movement);
+        }
+    }
 
     // Spawn the boss character on the right side
     // Position at x = 300 (right side), same y as player (-198)
