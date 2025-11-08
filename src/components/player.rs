@@ -9,6 +9,7 @@ pub struct Player;
 pub struct PlayerVelocity {
     pub y: f32,
     pub jump_type: JumpType,
+    pub facing_direction: f32,
 }
 
 /// Component to track jump charging (hold duration)

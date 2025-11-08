@@ -27,6 +27,7 @@ pub fn spawn_player_and_level(
         PlayerVelocity { 
             y: 0.0,
             jump_type: JumpType::None,
+            facing_direction: 1.0,
         },
         JumpCharge {
             timer: 0.0,
@@ -79,6 +80,10 @@ pub fn player_movement(
             direction += 1.0;
         }
 
+        if direction != 0.0 {
+            velocity.facing_direction = direction;
+        }
+
         if let Some(mut dash) = dash {
             transform.translation.x += dash.direction * DASH_SPEED * time.delta_secs();
             dash.timer -= time.delta_secs();
@@ -110,10 +115,9 @@ pub fn player_movement(
 
         // Dash
         if keyboard_input.pressed(KeyCode::ArrowDown) && jump_button_just_pressed && is_on_ground {
-            let dash_direction = if direction != 0.0 { direction } else { 1.0 };
             commands.entity(entity).insert(Dash {
                 timer: DASH_DURATION,
-                direction: dash_direction,
+                direction: velocity.facing_direction,
             });
             return; // No other movement during dash
         }
