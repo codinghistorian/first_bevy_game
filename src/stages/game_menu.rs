@@ -56,6 +56,18 @@ pub struct StageUpgradeScreen;
 #[derive(Resource, Default)]
 pub struct CurrentStage(pub u32);
 
+/// Component to identify upgrade option buttons
+#[derive(Component)]
+pub enum UpgradeButton {
+    IncreaseHp,
+    AcquireWeapon,
+    ImproveDefense,
+}
+
+/// Resource to track which upgrade option is currently selected (0 = HP, 1 = Weapon, 2 = Defense)
+#[derive(Resource, Default)]
+pub struct SelectedUpgradeIndex(pub usize);
+
 /// Resource to store which boss was defeated (for win screen display)
 #[derive(Resource, Default)]
 pub struct DefeatedBoss {
@@ -389,6 +401,113 @@ pub fn spawn_stage_upgrade_screen(
     defeated_boss: Res<DefeatedBoss>,
     current_stage: Res<CurrentStage>,
 ) {
+    // Create three upgrade option buttons
+    let hp_button_entity = commands.spawn((
+        Button,
+        Node {
+            width: px(400.0),
+            height: px(120.0),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            row_gap: px(10.0),
+            padding: UiRect::all(px(20.0)),
+            border: UiRect::all(px(8.0)),
+            ..default()
+        },
+        BackgroundColor(Color::srgb(0.3, 0.5, 0.3)), // Green for HP
+        BorderColor::all(Color::srgb(1.0, 0.9, 0.0)), // Start with glow (first option is default selected)
+        UpgradeButton::IncreaseHp,
+    )).with_children(|parent| {
+        parent.spawn((
+            Text::new("Increase Max HP"),
+            TextFont {
+                font_size: 32.0,
+                ..default()
+            },
+            TextColor(WHITE.into()),
+        ));
+        parent.spawn((
+            Text::new("+50 Max HP"),
+            TextFont {
+                font_size: 24.0,
+                ..default()
+            },
+            TextColor(WHITE.into()),
+        ));
+    }).id();
+
+    let weapon_button_entity = commands.spawn((
+        Button,
+        Node {
+            width: px(400.0),
+            height: px(120.0),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            row_gap: px(10.0),
+            padding: UiRect::all(px(20.0)),
+            border: UiRect::all(px(8.0)),
+            ..default()
+        },
+        BackgroundColor(Color::srgb(0.5, 0.3, 0.5)), // Purple for weapon
+        BorderColor::all(Color::srgb(0.4, 0.2, 0.4)), // Not selected
+        UpgradeButton::AcquireWeapon,
+    )).with_children(|parent| {
+        parent.spawn((
+            Text::new("Acquire Boss Weapon"),
+            TextFont {
+                font_size: 32.0,
+                ..default()
+            },
+            TextColor(WHITE.into()),
+        ));
+        parent.spawn((
+            Text::new("Use the defeated boss's weapon"),
+            TextFont {
+                font_size: 20.0,
+                ..default()
+            },
+            TextColor(WHITE.into()),
+        ));
+    }).id();
+
+    let defense_button_entity = commands.spawn((
+        Button,
+        Node {
+            width: px(400.0),
+            height: px(120.0),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            row_gap: px(10.0),
+            padding: UiRect::all(px(20.0)),
+            border: UiRect::all(px(8.0)),
+            ..default()
+        },
+        BackgroundColor(Color::srgb(0.5, 0.5, 0.3)), // Yellow for defense
+        BorderColor::all(Color::srgb(0.4, 0.4, 0.2)), // Not selected
+        UpgradeButton::ImproveDefense,
+    )).with_children(|parent| {
+        parent.spawn((
+            Text::new("Improve Defense"),
+            TextFont {
+                font_size: 32.0,
+                ..default()
+            },
+            TextColor(WHITE.into()),
+        ));
+        parent.spawn((
+            Text::new("Reduce damage taken by 25%"),
+            TextFont {
+                font_size: 20.0,
+                ..default()
+            },
+            TextColor(WHITE.into()),
+        ));
+    }).id();
+
+    // Create the root menu container
     commands
         .spawn((
             Node {
@@ -397,7 +516,7 @@ pub fn spawn_stage_upgrade_screen(
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                row_gap: px(30.0),
+                row_gap: px(40.0),
                 ..default()
             },
             BackgroundColor(Color::srgb(0.2, 0.2, 0.3)), // Dark blue background
@@ -416,70 +535,100 @@ pub fn spawn_stage_upgrade_screen(
             
             // Instructions
             parent.spawn((
-                Text::new("Choose an upgrade:"),
+                Text::new("Choose an upgrade (Arrow Keys + Enter):"),
                 TextFont {
-                    font_size: 32.0,
+                    font_size: 28.0,
                     ..default()
                 },
                 TextColor(WHITE.into()),
             ));
             
-            // Upgrade options
-            parent.spawn((
-                Text::new("1 - Increase Max HP (+50)"),
-                TextFont {
-                    font_size: 24.0,
-                    ..default()
-                },
-                TextColor(WHITE.into()),
-            ));
-            
-            parent.spawn((
-                Text::new("2 - Acquire Boss Weapon"),
-                TextFont {
-                    font_size: 24.0,
-                    ..default()
-                },
-                TextColor(WHITE.into()),
-            ));
-            
-            parent.spawn((
-                Text::new("3 - Improve Defense (Reduce damage by 25%)"),
-                TextFont {
-                    font_size: 24.0,
-                    ..default()
-                },
-                TextColor(WHITE.into()),
-            ));
+            // Button container with the three upgrade options
+            parent.spawn(Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(20.0),
+                align_items: AlignItems::Center,
+                ..default()
+            })
+            .add_child(hp_button_entity)
+            .add_child(weapon_button_entity)
+            .add_child(defense_button_entity);
         });
 }
 
-/// Handles input for stage upgrade screen
+/// Handles keyboard input for upgrade selection
 pub fn handle_upgrade_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut selected_index: ResMut<SelectedUpgradeIndex>,
+    mut border_query: Query<(&UpgradeButton, &mut BorderColor)>,
     mut next_state: ResMut<NextState<GameState>>,
     mut current_stage: ResMut<CurrentStage>,
     mut player_upgrades: ResMut<PlayerUpgrades>,
     defeated_boss: Res<DefeatedBoss>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Digit1) || keyboard_input.just_pressed(KeyCode::Numpad1) {
-        // Increase HP
-        player_upgrades.max_hp_bonus += 50.0;
-        // Move to next stage
-        current_stage.0 += 1;
-        next_state.set(GameState::InGame);
-    } else if keyboard_input.just_pressed(KeyCode::Digit2) || keyboard_input.just_pressed(KeyCode::Numpad2) {
-        // Acquire boss weapon
-        if let Some(boss_type) = defeated_boss.boss_type {
-            player_upgrades.has_boss_weapon = true;
-            player_upgrades.boss_weapon_type = Some(boss_type);
+    // Handle up/down arrow keys to navigate
+    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+        if selected_index.0 > 0 {
+            selected_index.0 -= 1;
         }
-        // Move to next stage
-        current_stage.0 += 1;
-        next_state.set(GameState::InGame);
-    } else if keyboard_input.just_pressed(KeyCode::Digit3) || keyboard_input.just_pressed(KeyCode::Numpad3) {
-        // Improve defense
-        player_upgrades.defense_multiplier = (player_upgrades.defense_multiplier - 0.25).max(0.0);
+    }
+    
+    if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+        if selected_index.0 < 2 {
+            selected_index.0 += 1;
+        }
+    }
+
+    // Update border colors based on selection
+    for (button, mut border_color) in &mut border_query {
+        let is_selected = match button {
+            UpgradeButton::IncreaseHp => selected_index.0 == 0,
+            UpgradeButton::AcquireWeapon => selected_index.0 == 1,
+            UpgradeButton::ImproveDefense => selected_index.0 == 2,
+        };
+
+        if is_selected {
+            // Glowing border (bright yellow/gold)
+            *border_color = BorderColor::all(Color::srgb(1.0, 0.9, 0.0));
+        } else {
+            // Normal border based on button type
+            match button {
+                UpgradeButton::IncreaseHp => {
+                    *border_color = BorderColor::all(Color::srgb(0.2, 0.4, 0.2));
+                }
+                UpgradeButton::AcquireWeapon => {
+                    *border_color = BorderColor::all(Color::srgb(0.4, 0.2, 0.4));
+                }
+                UpgradeButton::ImproveDefense => {
+                    *border_color = BorderColor::all(Color::srgb(0.4, 0.4, 0.2));
+                }
+            }
+        }
+    }
+
+    // Handle Enter or Space to confirm selection
+    if keyboard_input.just_pressed(KeyCode::Enter) || keyboard_input.just_pressed(KeyCode::Space) {
+        match selected_index.0 {
+            0 => {
+                // Increase HP
+                player_upgrades.max_hp_bonus += 50.0;
+                info!("Selected upgrade: Increase Max HP");
+            }
+            1 => {
+                // Acquire boss weapon
+                if let Some(boss_type) = defeated_boss.boss_type {
+                    player_upgrades.has_boss_weapon = true;
+                    player_upgrades.boss_weapon_type = Some(boss_type);
+                }
+                info!("Selected upgrade: Acquire Boss Weapon");
+            }
+            2 => {
+                // Improve defense
+                player_upgrades.defense_multiplier = (player_upgrades.defense_multiplier - 0.25).max(0.0);
+                info!("Selected upgrade: Improve Defense");
+            }
+            _ => {}
+        }
         // Move to next stage
         current_stage.0 += 1;
         next_state.set(GameState::InGame);
@@ -530,6 +679,7 @@ pub struct GameMenuPlugin;
 impl Plugin for GameMenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectedCharacterIndex>()
+            .init_resource::<SelectedUpgradeIndex>()
             .init_resource::<DefeatedBoss>()
             .init_resource::<ShowWinScreen>()
             .init_resource::<PlayerUpgrades>()
@@ -545,7 +695,13 @@ impl Plugin for GameMenuPlugin {
             )
             .add_systems(OnEnter(GameState::InGame), spawn_in_game_screen)
             .add_systems(OnEnter(GameState::GameOver), spawn_game_over_screen)
-            .add_systems(OnEnter(GameState::StageUpgrade), spawn_stage_upgrade_screen)
+            .add_systems(OnEnter(GameState::StageUpgrade), (
+                |mut selected_index: ResMut<SelectedUpgradeIndex>| {
+                    // Reset to first option when entering upgrade screen
+                    selected_index.0 = 0;
+                },
+                spawn_stage_upgrade_screen,
+            ).chain())
             .add_systems(OnEnter(GameState::GameWin), (
                 handle_stage_progression, // Check and progress stage FIRST (before showing win screen)
                 spawn_game_win_screen.run_if(|show_win: Res<ShowWinScreen>| show_win.0),
