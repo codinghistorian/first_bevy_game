@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::components::player::*;
 use crate::components::boss::*;
 use crate::stages::game_menu::SelectedCharacter;
-use crate::systems::config::SMALL_JUMP_CHARGE_RATIO;
+use crate::systems::config::{SMALL_JUMP_CHARGE_RATIO, KNOCKBACK_FORCE, KNOCKBACK_DURATION, KNOCKBACK_DECAY_RATE, KNOCKBACK_MOVEMENT_REDUCTION};
 
 /// Spawns the ingame 2D game scene when entering the InGame state
 pub fn spawn_player_and_level(
@@ -149,7 +149,7 @@ pub fn player_movement(
 
         // Apply movement, but reduce it if knockback is active
         let movement_speed = if knockback.is_some() {
-            SPEED * 0.3 // Reduce movement speed during knockback
+            SPEED * KNOCKBACK_MOVEMENT_REDUCTION // Reduce movement speed during knockback
         } else {
             SPEED
         };
@@ -450,8 +450,6 @@ pub fn player_boss_collision(
     const BOSS_SIZE: Vec2 = Vec2::new(32.0, 64.0);
     const DAMAGE: f32 = 10.0;
     const INVINCIBILITY_DURATION: f32 = 1.0; // 1 second of invincibility after taking damage
-    const KNOCKBACK_FORCE: f32 = 300.0; // Force of knockback push
-    const KNOCKBACK_DURATION: f32 = 0.3; // Duration of knockback effect
 
     for (player_entity, player_transform, mut player_hp, invincibility) in &mut player_query {
         // Check if player is invincible
@@ -524,7 +522,7 @@ pub fn apply_knockback(
         transform.translation.x = transform.translation.x.clamp(-350.0, 350.0);
         
         // Decay knockback over time
-        knockback.velocity *= 0.9; // Reduce velocity each frame
+        knockback.velocity *= KNOCKBACK_DECAY_RATE; // Reduce velocity each frame
         knockback.timer -= time.delta_secs();
         
         // Remove knockback when timer expires
