@@ -1,1 +1,13 @@
 pub const SMALL_JUMP_CHARGE_RATIO: f32 = 0.43;
+
+// Jump mechanics
+pub const BASE_JUMP_STRENGTH: f32 = 400.0;
+pub const BASE_GRAVITY: f32 = 800.0;
+
+pub const HIGH_JUMP_STRENGTH_MULTIPLIER: f32 = 1.1;
+pub const HIGH_JUMP_GRAVITY_MULTIPLIER: f32 = 1.1;
+
+pub const SMALL_JUMP_STRENGTH_MULTIPLIER: f32 = 0.4;
+pub const SMALL_JUMP_GRAVITY_MULTIPLIER: f32 = 1.2;
+
+pub const MAX_CHARGE_TIME: f32 = 0.2;

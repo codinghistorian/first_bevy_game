@@ -63,11 +63,11 @@ pub fn player_movement(
     const GROUND_Y: f32 = -198.0; // Ground level (character center when on floor)
     
     // High jump: 10% higher (1.1x), 10% faster gravity (1.1x)
-    const HIGH_JUMP_STRENGTH: f32 = BASE_JUMP_STRENGTH * 1.1; // 440.0
-    const HIGH_JUMP_GRAVITY: f32 = BASE_GRAVITY * 1.1; // 880.0
+    const HIGH_JUMP_STRENGTH: f32 = 620.0; // 440.0
+    const HIGH_JUMP_GRAVITY: f32 = 1200.0; // 880.0
     
     // Small jump: 40% of base jump (0.4x), 20% faster gravity (1.2x)
-    const SMALL_JUMP_STRENGTH: f32 = BASE_JUMP_STRENGTH * 0.4; // 160.0
+    const SMALL_JUMP_STRENGTH: f32 = 350.5; // 160.0
     const SMALL_JUMP_GRAVITY: f32 = BASE_GRAVITY * 1.2; // 960.0
     
     const MAX_CHARGE_TIME: f32 = 0.2; // Maximum charge time for high jump (0.2 seconds)
