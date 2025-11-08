@@ -7,6 +7,7 @@ pub enum GameState {
     #[default]
     CharacterSelection,
     InGame,
+    StageUpgrade, // Intermediate stage between bosses for upgrades
     GameOver,
     GameWin,
 }
@@ -47,6 +48,10 @@ pub struct GameOverScreen;
 #[derive(Component)]
 pub struct GameWinScreen;
 
+/// Marker component for the stage upgrade screen UI root
+#[derive(Component)]
+pub struct StageUpgradeScreen;
+
 /// Resource to track the current stage number (1-indexed)
 #[derive(Resource, Default)]
 pub struct CurrentStage(pub u32);
@@ -60,6 +65,26 @@ pub struct DefeatedBoss {
 /// Resource to track whether to show the win screen (only for final stage)
 #[derive(Resource, Default)]
 pub struct ShowWinScreen(pub bool);
+
+/// Resource to track player upgrades and stats
+#[derive(Resource, Default)]
+pub struct PlayerUpgrades {
+    pub max_hp_bonus: f32,        // Additional HP added to base max HP
+    pub defense_multiplier: f32,  // Damage reduction (1.0 = no reduction, 0.5 = 50% less damage)
+    pub has_boss_weapon: bool,    // Whether player has acquired boss weapon
+    pub boss_weapon_type: Option<crate::components::boss::BossType>, // Which boss weapon was acquired
+}
+
+impl PlayerUpgrades {
+    pub fn new() -> Self {
+        Self {
+            max_hp_bonus: 0.0,
+            defense_multiplier: 1.0, // Start with no defense bonus
+            has_boss_weapon: false,
+            boss_weapon_type: None,
+        }
+    }
+}
 
 
 
@@ -358,26 +383,120 @@ pub fn spawn_game_win_screen(
         });
 }
 
+/// Spawns the stage upgrade screen (intermediate screen between stages)
+pub fn spawn_stage_upgrade_screen(
+    mut commands: Commands,
+    defeated_boss: Res<DefeatedBoss>,
+    current_stage: Res<CurrentStage>,
+) {
+    commands
+        .spawn((
+            Node {
+                width: percent(100.0),
+                height: percent(100.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                row_gap: px(30.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.2, 0.2, 0.3)), // Dark blue background
+            StageUpgradeScreen,
+        ))
+        .with_children(|parent| {
+            // Title
+            parent.spawn((
+                Text::new("STAGE CLEARED!"),
+                TextFont {
+                    font_size: 48.0,
+                    ..default()
+                },
+                TextColor(WHITE.into()),
+            ));
+            
+            // Instructions
+            parent.spawn((
+                Text::new("Choose an upgrade:"),
+                TextFont {
+                    font_size: 32.0,
+                    ..default()
+                },
+                TextColor(WHITE.into()),
+            ));
+            
+            // Upgrade options
+            parent.spawn((
+                Text::new("1 - Increase Max HP (+50)"),
+                TextFont {
+                    font_size: 24.0,
+                    ..default()
+                },
+                TextColor(WHITE.into()),
+            ));
+            
+            parent.spawn((
+                Text::new("2 - Acquire Boss Weapon"),
+                TextFont {
+                    font_size: 24.0,
+                    ..default()
+                },
+                TextColor(WHITE.into()),
+            ));
+            
+            parent.spawn((
+                Text::new("3 - Improve Defense (Reduce damage by 25%)"),
+                TextFont {
+                    font_size: 24.0,
+                    ..default()
+                },
+                TextColor(WHITE.into()),
+            ));
+        });
+}
+
+/// Handles input for stage upgrade screen
+pub fn handle_upgrade_input(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut current_stage: ResMut<CurrentStage>,
+    mut player_upgrades: ResMut<PlayerUpgrades>,
+    defeated_boss: Res<DefeatedBoss>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Digit1) || keyboard_input.just_pressed(KeyCode::Numpad1) {
+        // Increase HP
+        player_upgrades.max_hp_bonus += 50.0;
+        // Move to next stage
+        current_stage.0 += 1;
+        next_state.set(GameState::InGame);
+    } else if keyboard_input.just_pressed(KeyCode::Digit2) || keyboard_input.just_pressed(KeyCode::Numpad2) {
+        // Acquire boss weapon
+        if let Some(boss_type) = defeated_boss.boss_type {
+            player_upgrades.has_boss_weapon = true;
+            player_upgrades.boss_weapon_type = Some(boss_type);
+        }
+        // Move to next stage
+        current_stage.0 += 1;
+        next_state.set(GameState::InGame);
+    } else if keyboard_input.just_pressed(KeyCode::Digit3) || keyboard_input.just_pressed(KeyCode::Numpad3) {
+        // Improve defense
+        player_upgrades.defense_multiplier = (player_upgrades.defense_multiplier - 0.25).max(0.0);
+        // Move to next stage
+        current_stage.0 += 1;
+        next_state.set(GameState::InGame);
+    }
+}
+
 /// Handles input for game over and win screens (restart functionality)
-/// Also handles automatic stage progression when player wins
 pub fn handle_game_end_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
     mut current_stage: ResMut<CurrentStage>,
+    mut player_upgrades: ResMut<PlayerUpgrades>,
 ) {
-    use crate::systems::config::MAX_STAGES;
-    
-    // Check if we're in win screen and should progress to next stage
-    // This runs every frame, so we check if we just entered GameWin
-    // If there are more stages, automatically transition to next stage
-    // Otherwise, wait for player input to restart
-    
-    // For now, we'll handle stage progression in a separate system
-    // that runs on entering GameWin state
-    
     if keyboard_input.just_pressed(KeyCode::Enter) || keyboard_input.just_pressed(KeyCode::Space) {
-        // Reset stage counter when restarting
+        // Reset stage counter and upgrades when restarting
         current_stage.0 = 0;
+        *player_upgrades = PlayerUpgrades::new();
         // Restart game by going back to character selection
         next_state.set(GameState::CharacterSelection);
     }
@@ -394,15 +513,12 @@ pub fn handle_stage_progression(
     // Check current stage BEFORE incrementing
     let current_stage_num = current_stage.0;
     
-    // If we're not at the final stage, automatically progress to next stage
+    // If we're not at the final stage, go to upgrade screen
     if current_stage_num < MAX_STAGES {
-        // Move to next stage
-        current_stage.0 += 1;
-        // Don't show win screen - we're progressing to next stage
+        // Don't show win screen - we're going to upgrade screen
         show_win_screen.0 = false;
-        // Transition back to InGame to load the next boss
-        // This will trigger OnExit(GameWin) and OnEnter(InGame), properly reloading everything
-        next_state.set(GameState::InGame);
+        // Transition to upgrade screen
+        next_state.set(GameState::StageUpgrade);
     } else {
         // Final stage completed - show win screen
         show_win_screen.0 = true;
@@ -416,6 +532,7 @@ impl Plugin for GameMenuPlugin {
         app.init_resource::<SelectedCharacterIndex>()
             .init_resource::<DefeatedBoss>()
             .init_resource::<ShowWinScreen>()
+            .init_resource::<PlayerUpgrades>()
             .add_systems(Startup, spawn_ui_camera)
             .add_systems(OnEnter(GameState::CharacterSelection), spawn_character_selection_menu)
             .add_systems(
@@ -428,6 +545,7 @@ impl Plugin for GameMenuPlugin {
             )
             .add_systems(OnEnter(GameState::InGame), spawn_in_game_screen)
             .add_systems(OnEnter(GameState::GameOver), spawn_game_over_screen)
+            .add_systems(OnEnter(GameState::StageUpgrade), spawn_stage_upgrade_screen)
             .add_systems(OnEnter(GameState::GameWin), (
                 handle_stage_progression, // Check and progress stage FIRST (before showing win screen)
                 spawn_game_win_screen.run_if(|show_win: Res<ShowWinScreen>| show_win.0),
@@ -435,6 +553,7 @@ impl Plugin for GameMenuPlugin {
             .add_systems(
                 Update,
                 (
+                    handle_upgrade_input.run_if(in_state(GameState::StageUpgrade)),
                     handle_game_end_input.run_if(in_state(GameState::GameOver)),
                     handle_game_end_input.run_if(in_state(GameState::GameWin)),
                 ),
@@ -446,6 +565,10 @@ impl Plugin for GameMenuPlugin {
             .add_systems(
                 OnExit(GameState::GameWin),
                 despawn_screen::<GameWinScreen>,
+            )
+            .add_systems(
+                OnExit(GameState::StageUpgrade),
+                despawn_screen::<StageUpgradeScreen>,
             );
     }
 }

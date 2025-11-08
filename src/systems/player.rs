@@ -3,6 +3,7 @@ use crate::components::player::*;
 use crate::components::boss::*;
 use crate::stages::game_menu::{SelectedCharacter, GameState, DefeatedBoss};
 use crate::systems::config::{SMALL_JUMP_CHARGE_RATIO, KNOCKBACK_FORCE, KNOCKBACK_DURATION, KNOCKBACK_DECAY_RATE, KNOCKBACK_MOVEMENT_REDUCTION, INVINCIBILITY_DURATION, MAX_STAGES};
+use crate::stages::game_menu::PlayerUpgrades;
 
 /// Spawns the ingame 2D game scene when entering the InGame state
 pub fn spawn_player_and_level(
@@ -10,12 +11,18 @@ pub fn spawn_player_and_level(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     selected_character: Res<SelectedCharacter>,
+    player_upgrades: Option<Res<PlayerUpgrades>>,
 ) {
     // Determine character color based on selection
     let character_color = match *selected_character {
         SelectedCharacter::Megaman => Color::srgb(0.2, 0.4, 0.9), // Blue
         SelectedCharacter::Protoman => Color::srgb(0.9, 0.2, 0.2), // Red
     };
+
+    // Calculate HP with upgrades
+    let base_max_hp = 100.0;
+    let max_hp_bonus = player_upgrades.as_ref().map(|u| u.max_hp_bonus).unwrap_or(0.0);
+    let max_hp = base_max_hp + max_hp_bonus;
 
     // Spawn the player character as a rectangle
     // Floor top is at y = -230 (floor center -250 + half-height 20)
@@ -26,8 +33,8 @@ pub fn spawn_player_and_level(
         Transform::from_xyz(0.0, -198.0, 1.0), // Positioned on top of the floor
         Player,
         Hp {
-            current: 100.0,
-            max: 100.0,
+            current: max_hp, // Start with full HP (including upgrades)
+            max: max_hp,
         },
         PlayerVelocity { 
             y: 0.0,
@@ -512,10 +519,15 @@ pub fn player_boss_collision(
     mut player_query: Query<(Entity, &Transform, &mut Hp, Option<&mut Invincibility>), With<Player>>,
     boss_query: Query<&Transform, With<Boss>>,
     mut commands: Commands,
+    player_upgrades: Option<Res<PlayerUpgrades>>,
 ) {
     const PLAYER_SIZE: Vec2 = Vec2::new(32.0, 64.0);
     const BOSS_SIZE: Vec2 = Vec2::new(32.0, 64.0);
-    const DAMAGE: f32 = 10.0;
+    const BASE_DAMAGE: f32 = 10.0;
+    
+    // Apply defense multiplier to damage
+    let defense_multiplier = player_upgrades.as_ref().map(|u| u.defense_multiplier).unwrap_or(1.0);
+    let DAMAGE = BASE_DAMAGE * defense_multiplier;
 
     for (player_entity, player_transform, mut player_hp, invincibility) in &mut player_query {
         // Check if player is invincible

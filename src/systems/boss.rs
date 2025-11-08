@@ -401,11 +401,16 @@ pub fn boss_projectile_player_collision(
     projectile_query: Query<(Entity, &Transform, &Projectile), (With<BossProjectile>, Without<Player>)>,
     mut player_query: Query<(Entity, &Transform, &mut Hp, Option<&mut Invincibility>), With<Player>>,
     time: Res<Time>,
+    player_upgrades: Option<Res<crate::stages::game_menu::PlayerUpgrades>>,
 ) {
     const PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
     const PLAYER_SIZE: Vec2 = Vec2::new(32.0, 64.0);
-    const DAMAGE: f32 = 15.0;
+    const BASE_DAMAGE: f32 = 15.0;
     const INVINCIBILITY_DURATION: f32 = 0.5;
+    
+    // Apply defense multiplier to damage
+    let defense_multiplier = player_upgrades.as_ref().map(|u| u.defense_multiplier).unwrap_or(1.0);
+    let DAMAGE = BASE_DAMAGE * defense_multiplier;
 
     for (projectile_entity, projectile_transform, projectile) in &projectile_query {
         for (player_entity, player_transform, mut player_hp, invincibility) in &mut player_query {

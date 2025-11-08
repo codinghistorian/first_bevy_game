@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::stages::game_menu::{GameState, despawn_screen, CurrentStage};
+use crate::stages::game_menu::{GameState, despawn_screen, CurrentStage, PlayerUpgrades};
 use crate::systems::player::{player_movement, spawn_player_and_level, player_shooting, projectile_movement, setup_player_hp_bar, update_health_bars, change_health, spawn_boss, setup_boss_hp_bar, player_boss_collision, projectile_boss_collision, apply_knockback, check_game_outcome};
 use crate::systems::boss::{boss_movement, boss_attacks, boss_projectile_movement, boss_projectile_player_collision, BossPatternRegistry, BossProjectile, load_stage_boss_pattern};
 use crate::components::player::{Player, Floor, Projectile, HealthBar};
@@ -13,6 +13,7 @@ impl Plugin for PlayerPlugin {
             .init_resource::<BossRegistry>()
             .init_resource::<BossPatternRegistry>()
             .init_resource::<CurrentStage>()
+            .init_resource::<PlayerUpgrades>()
             .add_systems(OnEnter(GameState::InGame), (
                 // Initialize stage to 1 only if starting fresh (stage is 0)
                 |mut stage: ResMut<CurrentStage>| {
