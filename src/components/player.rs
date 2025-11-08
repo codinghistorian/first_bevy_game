@@ -62,3 +62,9 @@ pub struct Projectile {
 pub struct Shooting {
     pub timer: f32,
 }
+
+/// Component to track invincibility frames (prevents damage spam)
+#[derive(Component)]
+pub struct Invincibility {
+    pub timer: f32,
+}

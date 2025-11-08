@@ -415,3 +415,103 @@ pub fn change_health(
     // Player slowly regenerates
     player_hp.current = (player_hp.current + 5.0 * time.delta_secs()).min(player_hp.max);
 }
+
+/// Helper function to check AABB (Axis-Aligned Bounding Box) collision
+fn check_aabb_collision(
+    pos1: Vec3,
+    size1: Vec2,
+    pos2: Vec3,
+    size2: Vec2,
+) -> bool {
+    let half_size1 = size1 * 0.5;
+    let half_size2 = size2 * 0.5;
+    
+    pos1.x - half_size1.x < pos2.x + half_size2.x
+        && pos1.x + half_size1.x > pos2.x - half_size2.x
+        && pos1.y - half_size1.y < pos2.y + half_size2.y
+        && pos1.y + half_size1.y > pos2.y - half_size2.y
+}
+
+/// System to handle player-boss collision (player takes damage)
+pub fn player_boss_collision(
+    time: Res<Time>,
+    mut player_query: Query<(Entity, &Transform, &mut Hp, Option<&mut Invincibility>), With<Player>>,
+    boss_query: Query<&Transform, With<Boss>>,
+    mut commands: Commands,
+) {
+    const PLAYER_SIZE: Vec2 = Vec2::new(32.0, 64.0);
+    const BOSS_SIZE: Vec2 = Vec2::new(32.0, 64.0);
+    const DAMAGE: f32 = 10.0;
+    const INVINCIBILITY_DURATION: f32 = 1.0; // 1 second of invincibility after taking damage
+
+    for (player_entity, player_transform, mut player_hp, invincibility) in &mut player_query {
+        // Check if player is invincible
+        let is_invincible = if let Some(mut inv) = invincibility {
+            inv.timer -= time.delta_secs();
+            if inv.timer > 0.0 {
+                true
+            } else {
+                commands.entity(player_entity).remove::<Invincibility>();
+                false
+            }
+        } else {
+            false
+        };
+
+        if is_invincible {
+            continue;
+        }
+
+        // Check collision with boss
+        for boss_transform in &boss_query {
+            if check_aabb_collision(
+                player_transform.translation,
+                PLAYER_SIZE,
+                boss_transform.translation,
+                BOSS_SIZE,
+            ) {
+                // Player takes damage
+                player_hp.current = (player_hp.current - DAMAGE).max(0.0);
+                
+                // Add invincibility frames
+                commands.entity(player_entity).insert(Invincibility {
+                    timer: INVINCIBILITY_DURATION,
+                });
+                
+                // Only process one collision per frame
+                break;
+            }
+        }
+    }
+}
+
+/// System to handle projectile-boss collision (boss takes damage, projectile despawns)
+pub fn projectile_boss_collision(
+    mut commands: Commands,
+    projectile_query: Query<(Entity, &Transform), (With<Projectile>, Without<Boss>)>,
+    mut boss_query: Query<(&Transform, &mut Hp), With<Boss>>,
+) {
+    const PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
+    const BOSS_SIZE: Vec2 = Vec2::new(32.0, 64.0);
+    const DAMAGE: f32 = 20.0;
+
+    for (projectile_entity, projectile_transform) in &projectile_query {
+        for (boss_transform, mut boss_hp) in &mut boss_query {
+            if check_aabb_collision(
+                projectile_transform.translation,
+                PROJECTILE_SIZE,
+                boss_transform.translation,
+                BOSS_SIZE,
+            ) {
+                // Boss takes damage
+                boss_hp.current = (boss_hp.current - DAMAGE).max(0.0);
+                
+                // Despawn projectile
+                commands.entity(projectile_entity).despawn();
+                
+                // Only process one collision per projectile
+                break;
+            }
+        }
+    }
+}
