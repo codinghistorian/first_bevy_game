@@ -435,9 +435,10 @@ pub fn boss_projectile_player_collision(
                 && projectile_transform.translation.y - half_projectile.y < player_transform.translation.y + half_player.y
                 && projectile_transform.translation.y + half_projectile.y > player_transform.translation.y - half_player.y
             {
-                // Calculate knockback direction (opposite of projectile direction)
-                // The projectile is moving toward the player, so knockback pushes player away
-                let knockback_direction = -projectile.direction.normalize_or_zero();
+                // Calculate knockback direction: push player away from the boss (same direction as projectile was traveling)
+                // The projectile direction points from boss toward player, so we use the same direction
+                // to push the player further away from the boss
+                let knockback_direction = projectile.direction.normalize_or_zero();
                 
                 // Player takes damage
                 player_hp.current = (player_hp.current - DAMAGE).max(0.0);
