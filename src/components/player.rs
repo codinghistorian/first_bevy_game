@@ -9,7 +9,7 @@ pub struct Player;
 pub struct PlayerVelocity {
     pub y: f32,
     pub jump_type: JumpType,
-    pub facing_direction: f32,
+    pub facing_direction: Vec2,
 }
 
 /// Component to track jump charging (hold duration)
@@ -36,4 +36,16 @@ pub struct Floor;
 pub struct Dash {
     pub timer: f32,
     pub direction: f32,
+}
+
+/// Component for projectiles
+#[derive(Component)]
+pub struct Projectile {
+    pub direction: Vec2,
+}
+
+/// Component to track shooting cooldown
+#[derive(Component)]
+pub struct Shooting {
+    pub timer: f32,
 }

@@ -27,11 +27,14 @@ pub fn spawn_player_and_level(
         PlayerVelocity { 
             y: 0.0,
             jump_type: JumpType::None,
-            facing_direction: 1.0,
+            facing_direction: Vec2::new(1.0, 0.0),
         },
         JumpCharge {
             timer: 0.0,
             is_charging: false,
+        },
+        Shooting {
+            timer: 0.0,
         },
     ));
 
@@ -70,18 +73,25 @@ pub fn player_movement(
     const MAX_CHARGE_TIME: f32 = 0.2; // Maximum charge time for high jump (0.2 seconds)
 
     for (entity, mut transform, mut velocity, mut jump_charge, dash) in &mut player_query {
-        // Horizontal movement
-        let mut direction = 0.0;
+        // Movement
+        let mut direction = Vec2::ZERO;
 
         if keyboard_input.pressed(KeyCode::ArrowLeft) {
-            direction -= 1.0;
+            direction.x -= 1.0;
         }
         if keyboard_input.pressed(KeyCode::ArrowRight) {
-            direction += 1.0;
+            direction.x += 1.0;
         }
+        if keyboard_input.pressed(KeyCode::ArrowUp) {
+            direction.y += 1.0;
+        }
+        // We don't handle ArrowDown for movement, only for dash
+        // if keyboard_input.pressed(KeyCode::ArrowDown) {
+        //     direction.y -= 1.0;
+        // }
 
-        if direction != 0.0 {
-            velocity.facing_direction = direction;
+        if direction != Vec2::ZERO {
+            velocity.facing_direction = direction.normalize();
         }
 
         if let Some(mut dash) = dash {
@@ -93,12 +103,10 @@ pub fn player_movement(
             return; // No other movement during dash
         }
 
-        if direction != 0.0 {
-            transform.translation.x += direction * SPEED * time.delta_secs();
-            
-            // Keep player within screen bounds
-            transform.translation.x = transform.translation.x.clamp(-350.0, 350.0);
-        }
+        transform.translation.x += direction.x * SPEED * time.delta_secs();
+        // Keep player within screen bounds
+        transform.translation.x = transform.translation.x.clamp(-350.0, 350.0);
+
 
         // Check if jump button is pressed (Arrow Up, Space, or X)
         let jump_button_pressed = keyboard_input.pressed(KeyCode::ArrowUp)
@@ -117,7 +125,7 @@ pub fn player_movement(
         if keyboard_input.pressed(KeyCode::ArrowDown) && jump_button_just_pressed && is_on_ground {
             commands.entity(entity).insert(Dash {
                 timer: DASH_DURATION,
-                direction: velocity.facing_direction,
+                direction: velocity.facing_direction.x,
             });
             return; // No other movement during dash
         }
@@ -176,6 +184,63 @@ pub fn player_movement(
             transform.translation.y = GROUND_Y;
             velocity.y = 0.0;
             velocity.jump_type = JumpType::None; // Reset jump type when landing
+        }
+    }
+}
+
+pub fn player_shooting(
+    mut commands: Commands,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut player_query: Query<(&Transform, &PlayerVelocity, &mut Shooting), With<Player>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    const SHOOT_COOLDOWN: f32 = 0.5; // Seconds
+
+    for (player_transform, player_velocity, mut shooting) in &mut player_query {
+        shooting.timer -= time.delta_secs();
+
+        if keyboard_input.pressed(KeyCode::KeyS) && shooting.timer <= 0.0 {
+            // Prevent shooting downwards
+            if player_velocity.facing_direction.y < 0.0 {
+                return;
+            }
+
+            let projectile_transform = Transform::from_xyz(
+                player_transform.translation.x,
+                player_transform.translation.y,
+                0.0,
+            );
+
+            commands.spawn((
+                Mesh2d(meshes.add(Rectangle::new(10.0, 10.0))),
+                MeshMaterial2d(materials.add(Color::srgb(1.0, 0.0, 0.0))),
+                projectile_transform,
+                Projectile {
+                    direction: player_velocity.facing_direction,
+                },
+            ));
+
+            shooting.timer = SHOOT_COOLDOWN;
+        }
+    }
+}
+
+pub fn projectile_movement(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut projectile_query: Query<(Entity, &mut Transform, &Projectile)>,
+) {
+    const PROJECTILE_SPEED: f32 = 500.0; // Pixels per second
+
+    for (entity, mut transform, projectile) in &mut projectile_query {
+        transform.translation.x += projectile.direction.x * PROJECTILE_SPEED * time.delta_secs();
+        transform.translation.y += projectile.direction.y * PROJECTILE_SPEED * time.delta_secs();
+
+        // Despawn projectile after it goes off screen
+        if transform.translation.x.abs() > 400.0 || transform.translation.y.abs() > 300.0 {
+            commands.entity(entity).despawn();
         }
     }
 }
