@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use crate::components::player::*;
 use crate::components::boss::*;
-use crate::stages::game_menu::SelectedCharacter;
-use crate::systems::config::{SMALL_JUMP_CHARGE_RATIO, KNOCKBACK_FORCE, KNOCKBACK_DURATION, KNOCKBACK_DECAY_RATE, KNOCKBACK_MOVEMENT_REDUCTION, KNOCKBACK_TOP_HORIZONTAL_COMPONENT, KNOCKBACK_TOP_VERTICAL_COMPONENT, KNOCKBACK_SIDE_VERTICAL_COMPONENT};
+use crate::stages::game_menu::{SelectedCharacter, GameState, DefeatedBoss};
+use crate::systems::config::{SMALL_JUMP_CHARGE_RATIO, KNOCKBACK_FORCE, KNOCKBACK_DURATION, KNOCKBACK_DECAY_RATE, KNOCKBACK_MOVEMENT_REDUCTION, INVINCIBILITY_DURATION};
 
 /// Spawns the ingame 2D game scene when entering the InGame state
 pub fn spawn_player_and_level(
@@ -68,7 +68,7 @@ pub fn spawn_boss(
 
     // Spawn the boss character on the right side
     // Position at x = 300 (right side), same y as player (-198)
-    let mut boss_entity = commands.spawn((
+    let _boss_entity = commands.spawn((
         Mesh2d(meshes.add(Rectangle::new(boss_data.size.x, boss_data.size.y))),
         MeshMaterial2d(materials.add(boss_data.color)),
         Transform::from_xyz(300.0, -198.0, 1.0), // Positioned on the right side, on top of the floor
@@ -443,8 +443,8 @@ fn check_aabb_collision(
 /// This makes knockback feel more dynamic and appropriate for different collision sides
 fn calculate_knockback_direction(
     direction_to_player: Vec2,
-    player_pos: Vec3,
-    boss_pos: Vec3,
+    _player_pos: Vec3,
+    _boss_pos: Vec3,
 ) -> Vec2 {
     use crate::systems::config::{KNOCKBACK_TOP_HORIZONTAL_COMPONENT, KNOCKBACK_TOP_VERTICAL_COMPONENT, KNOCKBACK_SIDE_VERTICAL_COMPONENT};
     
@@ -500,7 +500,6 @@ pub fn player_boss_collision(
     const PLAYER_SIZE: Vec2 = Vec2::new(32.0, 64.0);
     const BOSS_SIZE: Vec2 = Vec2::new(32.0, 64.0);
     const DAMAGE: f32 = 10.0;
-    const INVINCIBILITY_DURATION: f32 = 1.0; // 1 second of invincibility after taking damage
 
     for (player_entity, player_transform, mut player_hp, invincibility) in &mut player_query {
         // Check if player is invincible
@@ -609,6 +608,31 @@ pub fn projectile_boss_collision(
                 // Only process one collision per projectile
                 break;
             }
+        }
+    }
+}
+
+/// System to check for win/lose conditions
+pub fn check_game_outcome(
+    player_query: Query<&Hp, With<Player>>,
+    boss_query: Query<(&Hp, &BossType), With<Boss>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut defeated_boss: ResMut<DefeatedBoss>,
+) {
+    // Check if player is dead (lose condition)
+    if let Ok(player_hp) = player_query.single() {
+        if player_hp.current <= 0.0 {
+            next_state.set(GameState::GameOver);
+            return;
+        }
+    }
+
+    // Check if boss is dead (win condition)
+    if let Ok((boss_hp, boss_type)) = boss_query.single() {
+        if boss_hp.current <= 0.0 {
+            // Store which boss was defeated
+            defeated_boss.boss_type = Some(*boss_type);
+            next_state.set(GameState::GameWin);
         }
     }
 }

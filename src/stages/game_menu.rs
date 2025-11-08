@@ -7,6 +7,8 @@ pub enum GameState {
     #[default]
     CharacterSelection,
     InGame,
+    GameOver,
+    GameWin,
 }
 
 /// Resource to store the currently selected character
@@ -36,6 +38,20 @@ pub struct SelectedCharacterIndex(pub usize);
 /// Marker component for the character selection menu UI root
 #[derive(Component)]
 pub struct CharacterSelectionMenu;
+
+/// Marker component for the game over screen UI root
+#[derive(Component)]
+pub struct GameOverScreen;
+
+/// Marker component for the game win screen UI root
+#[derive(Component)]
+pub struct GameWinScreen;
+
+/// Resource to store which boss was defeated (for win screen display)
+#[derive(Resource, Default)]
+pub struct DefeatedBoss {
+    pub boss_type: Option<crate::components::boss::BossType>,
+}
 
 
 
@@ -217,11 +233,140 @@ pub fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut comm
     }
 }
 
+/// Spawns the game over screen (dark background, white text)
+pub fn spawn_game_over_screen(mut commands: Commands) {
+    commands
+        .spawn((
+            Node {
+                width: percent(100.0),
+                height: percent(100.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                row_gap: px(40.0),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.1, 0.1, 0.1)), // Dark background
+            GameOverScreen,
+        ))
+        .with_children(|parent| {
+            // Game Over text
+            parent.spawn((
+                Text::new("GAME OVER"),
+                TextFont {
+                    font_size: 64.0,
+                    ..default()
+                },
+                TextColor(WHITE.into()),
+            ));
+            
+            // Restart instruction
+            parent.spawn((
+                Text::new("Press SPACE or ENTER to restart"),
+                TextFont {
+                    font_size: 32.0,
+                    ..default()
+                },
+                TextColor(WHITE.into()),
+            ));
+        });
+}
+
+/// Spawns the game win screen (bright background, extensible for different bosses)
+pub fn spawn_game_win_screen(
+    mut commands: Commands,
+    defeated_boss: Res<DefeatedBoss>,
+) {
+    // Determine background color and text based on defeated boss
+    let (bg_color, win_text) = match defeated_boss.boss_type {
+        Some(crate::components::boss::BossType::Default) => {
+            (Color::srgb(0.3, 0.6, 0.9), "VICTORY!")
+        }
+        // Add more boss types here as you create them
+        // Some(crate::components::boss::BossType::FireMan) => {
+        //     (Color::srgb(0.9, 0.4, 0.2), "FIRE MAN DEFEATED!")
+        // }
+        None => {
+            (Color::srgb(0.4, 0.8, 0.4), "VICTORY!")
+        }
+    };
+
+    commands
+        .spawn((
+            Node {
+                width: percent(100.0),
+                height: percent(100.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                row_gap: px(40.0),
+                ..default()
+            },
+            BackgroundColor(bg_color),
+            GameWinScreen,
+        ))
+        .with_children(|parent| {
+            // Victory text
+            parent.spawn((
+                Text::new(win_text),
+                TextFont {
+                    font_size: 72.0,
+                    ..default()
+                },
+                TextColor(WHITE.into()),
+            ));
+            
+            // Restart instruction
+            parent.spawn((
+                Text::new("Press SPACE or ENTER to play again"),
+                TextFont {
+                    font_size: 32.0,
+                    ..default()
+                },
+                TextColor(WHITE.into()),
+            ));
+            
+            // Placeholder for boss-specific content (images, text, etc.)
+            // This can be extended later to show different content based on boss type
+            parent.spawn((
+                Node {
+                    width: px(400.0),
+                    height: px(200.0),
+                    margin: UiRect::all(px(20.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+            ))
+            .with_children(|content_parent| {
+                content_parent.spawn((
+                    Text::new("Boss-specific content area\n(Add images/text here)"),
+                    TextFont {
+                        font_size: 24.0,
+                        ..default()
+                    },
+                    TextColor(WHITE.into()),
+                ));
+            });
+        });
+}
+
+/// Handles input for game over and win screens (restart functionality)
+pub fn handle_game_end_input(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Enter) || keyboard_input.just_pressed(KeyCode::Space) {
+        // Restart game by going back to character selection
+        next_state.set(GameState::CharacterSelection);
+    }
+}
+
 pub struct GameMenuPlugin;
 
 impl Plugin for GameMenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectedCharacterIndex>()
+            .init_resource::<DefeatedBoss>()
             .add_systems(Startup, spawn_ui_camera)
             .add_systems(OnEnter(GameState::CharacterSelection), spawn_character_selection_menu)
             .add_systems(
@@ -232,6 +377,23 @@ impl Plugin for GameMenuPlugin {
                 OnExit(GameState::CharacterSelection),
                 despawn_screen::<CharacterSelectionMenu>,
             )
-            .add_systems(OnEnter(GameState::InGame), spawn_in_game_screen);
+            .add_systems(OnEnter(GameState::InGame), spawn_in_game_screen)
+            .add_systems(OnEnter(GameState::GameOver), spawn_game_over_screen)
+            .add_systems(OnEnter(GameState::GameWin), spawn_game_win_screen)
+            .add_systems(
+                Update,
+                (
+                    handle_game_end_input.run_if(in_state(GameState::GameOver)),
+                    handle_game_end_input.run_if(in_state(GameState::GameWin)),
+                ),
+            )
+            .add_systems(
+                OnExit(GameState::GameOver),
+                despawn_screen::<GameOverScreen>,
+            )
+            .add_systems(
+                OnExit(GameState::GameWin),
+                despawn_screen::<GameWinScreen>,
+            );
     }
 }

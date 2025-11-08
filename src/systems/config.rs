@@ -18,6 +18,9 @@ pub const KNOCKBACK_DURATION: f32 = 0.5; // Duration of knockback effect (second
 pub const KNOCKBACK_DECAY_RATE: f32 = 0.9; // Velocity decay per frame (0.0-1.0, higher = slower decay)
 pub const KNOCKBACK_MOVEMENT_REDUCTION: f32 = 0.3; // Player movement speed multiplier during knockback (0.0-1.0)
 
+// Invincibility mechanics (damage immunity after taking damage)
+pub const INVINCIBILITY_DURATION: f32 = 0.5; // Duration of invincibility after taking damage (seconds)
+
 // Knockback direction modifiers for different collision angles
 pub const KNOCKBACK_TOP_HORIZONTAL_COMPONENT: f32 = 0.6; // Horizontal component when hitting from top (0.0-1.0)
 pub const KNOCKBACK_TOP_VERTICAL_COMPONENT: f32 = 0.8; // Vertical component when hitting from top (0.0-1.0)
