@@ -1,0 +1,21 @@
+use bevy::prelude::*;
+use crate::stages::game_menu::{GameState, despawn_screen};
+use crate::systems::player::{player_movement, spawn_player_and_level};
+use crate::components::player::{Player, Floor};
+
+pub struct PlayerPlugin;
+
+impl Plugin for PlayerPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_systems(OnEnter(GameState::InGame), spawn_player_and_level)
+            .add_systems(
+                Update,
+                player_movement.run_if(in_state(GameState::InGame)),
+            )
+            .add_systems(
+                OnExit(GameState::InGame),
+                (despawn_screen::<Player>, despawn_screen::<Floor>),
+            );
+    }
+}
