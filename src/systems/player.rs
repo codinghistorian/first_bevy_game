@@ -405,15 +405,16 @@ pub fn update_health_bars(
     }
 }
 
-/// A simple system to simulate health changes for demonstration.
+/// System to handle health regeneration (currently disabled - player doesn't regenerate)
+/// This can be enabled later if you want health regeneration mechanics
 pub fn change_health(
-    time: Res<Time>,
-    mut player_query: Query<&mut Hp, With<Player>>,
+    _time: Res<Time>,
+    _player_query: Query<&mut Hp, With<Player>>,
 ) {
-    let mut player_hp = player_query.single_mut().unwrap();
-
-    // Player slowly regenerates
-    player_hp.current = (player_hp.current + 5.0 * time.delta_secs()).min(player_hp.max);
+    // Health regeneration disabled - player HP stays at current value
+    // Uncomment below to enable regeneration:
+    // let mut player_hp = player_query.single_mut().unwrap();
+    // player_hp.current = (player_hp.current + 5.0 * time.delta_secs()).min(player_hp.max);
 }
 
 /// Helper function to check AABB (Axis-Aligned Bounding Box) collision
