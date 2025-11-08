@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use crate::components::player::*;
+use crate::components::boss::*;
 use crate::stages::game_menu::SelectedCharacter;
 use crate::systems::config::SMALL_JUMP_CHARGE_RATIO;
 
@@ -49,6 +50,45 @@ pub fn spawn_player_and_level(
         Transform::from_xyz(0.0, -250.0, 0.0), // Position at bottom
         Floor,
     ));
+}
+
+/// Spawns the boss on the right side of the game field
+pub fn spawn_boss(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    boss_registry: Option<Res<BossRegistry>>,
+) {
+    // Get boss data from registry or use default
+    let boss_data = boss_registry
+        .as_ref()
+        .and_then(|registry| registry.get_boss_data(BossType::Default))
+        .cloned()
+        .unwrap_or_else(|| BossData::default());
+
+    // Spawn the boss character on the right side
+    // Position at x = 300 (right side), same y as player (-198)
+    let mut boss_entity = commands.spawn((
+        Mesh2d(meshes.add(Rectangle::new(boss_data.size.x, boss_data.size.y))),
+        MeshMaterial2d(materials.add(boss_data.color)),
+        Transform::from_xyz(300.0, -198.0, 1.0), // Positioned on the right side, on top of the floor
+        Boss,
+        boss_data.boss_type,
+        boss_data.clone(),
+        Hp {
+            current: 200.0,
+            max: 200.0,
+        },
+        BossAttackState::default(),
+        BossMovementState::default(),
+    ));
+
+    // TODO: Add sprite rendering when sprite is available
+    // In Bevy 0.17, you would use Sprite2d or Image2d depending on your setup
+    // For now, we use the colored rectangle as fallback
+    // if let Some(sprite_handle) = boss_data.sprite {
+    //     // Add sprite component here when ready
+    // }
 }
 
 
@@ -300,6 +340,53 @@ pub fn setup_player_hp_bar(mut commands: Commands, player_query: Query<Entity, W
                     },
                     BackgroundColor(Color::srgb(0.0, 1.0, 0.0).into()),
                     HealthBar { entity: player },
+                ));
+            });
+        });
+}
+
+/// Spawns the boss's HP bar.
+pub fn setup_boss_hp_bar(mut commands: Commands, boss_query: Query<Entity, With<Boss>>) {
+    let Ok(boss) = boss_query.single() else {
+        // Boss doesn't exist yet, skip creating HP bar
+        return;
+    };
+
+    // --- Boss HP Bar ---
+    // Create a completely separate root container for the boss HP bar
+    commands
+        .spawn(Node {
+            width: percent(100.0),
+            height: percent(100.0),
+            ..default()
+        })
+        .with_children(|parent| {
+            // HP bar container positioned at top-right using margins (separate from player HP bar)
+            parent.spawn((
+                Node {
+                    width: px(200.0),
+                    height: px(30.0),
+                    margin: UiRect {
+                        left: px(0.0),
+                        top: px(50.0), // Positioned below player HP bar (10px top + 30px height + 10px gap = 50px)
+                        right: px(10.0),
+                        bottom: px(0.0),
+                    },
+                    border: UiRect::all(px(2.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::BLACK.into()),
+            ))
+            .with_children(|hp_parent| {
+                // HP bar fill
+                hp_parent.spawn((
+                    Node {
+                        width: percent(100.0),
+                        height: percent(100.0),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(1.0, 0.0, 0.0).into()), // Red for boss
+                    HealthBar { entity: boss },
                 ));
             });
         });

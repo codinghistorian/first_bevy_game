@@ -1,15 +1,17 @@
 use bevy::prelude::*;
 use crate::stages::game_menu::{GameState, despawn_screen};
-use crate::systems::player::{player_movement, spawn_player_and_level, player_shooting, projectile_movement, setup_player_hp_bar, update_health_bars, change_health};
+use crate::systems::player::{player_movement, spawn_player_and_level, player_shooting, projectile_movement, setup_player_hp_bar, update_health_bars, change_health, spawn_boss, setup_boss_hp_bar};
 use crate::components::player::{Player, Floor, Projectile, HealthBar};
+use crate::components::boss::{Boss, BossRegistry};
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_systems(OnEnter(GameState::InGame), spawn_player_and_level)
-            .add_systems(OnEnter(GameState::InGame), setup_player_hp_bar.after(spawn_player_and_level))
+            .init_resource::<BossRegistry>()
+            .add_systems(OnEnter(GameState::InGame), (spawn_player_and_level, spawn_boss))
+            .add_systems(OnEnter(GameState::InGame), (setup_player_hp_bar, setup_boss_hp_bar).after(spawn_player_and_level).after(spawn_boss))
             .add_systems(
                 Update,
                 (
@@ -22,7 +24,7 @@ impl Plugin for PlayerPlugin {
             )
             .add_systems(
                 OnExit(GameState::InGame),
-                (despawn_screen::<Player>, despawn_screen::<Floor>, despawn_screen::<Projectile>, despawn_screen::<HealthBar>),
+                (despawn_screen::<Player>, despawn_screen::<Boss>, despawn_screen::<Floor>, despawn_screen::<Projectile>, despawn_screen::<HealthBar>),
             );
     }
 }
