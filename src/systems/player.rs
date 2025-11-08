@@ -24,6 +24,10 @@ pub fn spawn_player_and_level(
         MeshMaterial2d(materials.add(character_color)),
         Transform::from_xyz(0.0, -198.0, 1.0), // Positioned on top of the floor
         Player,
+        Hp {
+            current: 100.0,
+            max: 100.0,
+        },
         PlayerVelocity { 
             y: 0.0,
             jump_type: JumpType::None,
@@ -252,4 +256,75 @@ pub fn projectile_movement(
             commands.entity(entity).despawn();
         }
     }
+}
+
+/// Spawns the player's HP bar.
+pub fn setup_player_hp_bar(mut commands: Commands, player_query: Query<Entity, With<Player>>) {
+    let Ok(player) = player_query.single() else {
+        // Player doesn't exist yet, skip creating HP bar
+        return;
+    };
+
+    // --- Player HP Bar ---
+    // Create a root container that covers the screen
+    commands
+        .spawn(Node {
+            width: percent(100.0),
+            height: percent(100.0),
+            ..default()
+        })
+        .with_children(|parent| {
+            // HP bar container positioned at top-left using margins
+            parent.spawn((
+                Node {
+                    width: px(200.0),
+                    height: px(30.0),
+                    margin: UiRect {
+                        left: px(10.0),
+                        top: px(10.0),
+                        right: px(0.0),
+                        bottom: px(0.0),
+                    },
+                    border: UiRect::all(px(2.0)),
+                    ..default()
+                },
+                BackgroundColor(Color::BLACK.into()),
+            ))
+            .with_children(|hp_parent| {
+                // HP bar fill
+                hp_parent.spawn((
+                    Node {
+                        width: percent(100.0),
+                        height: percent(100.0),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgb(0.0, 1.0, 0.0).into()),
+                    HealthBar { entity: player },
+                ));
+            });
+        });
+}
+
+/// System to update the width of health bars based on the entity's HP.
+pub fn update_health_bars(
+    hp_query: Query<&Hp>,
+    mut health_bar_query: Query<(&HealthBar, &mut Node)>,
+) {
+    for (health_bar, mut node) in health_bar_query.iter_mut() {
+        if let Ok(hp) = hp_query.get(health_bar.entity) {
+            let health_percentage = (hp.current / hp.max) * 100.0;
+            node.width = percent(health_percentage);
+        }
+    }
+}
+
+/// A simple system to simulate health changes for demonstration.
+pub fn change_health(
+    time: Res<Time>,
+    mut player_query: Query<&mut Hp, With<Player>>,
+) {
+    let mut player_hp = player_query.single_mut().unwrap();
+
+    // Player slowly regenerates
+    player_hp.current = (player_hp.current + 5.0 * time.delta_secs()).min(player_hp.max);
 }
