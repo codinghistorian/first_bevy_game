@@ -287,7 +287,7 @@ pub fn player_movement(
                 let charge_ratio = (jump_charge.timer / MAX_CHARGE_TIME).clamp(0.0, 1.0);
                 
                 // Interpolate between small and high jump based on charge time
-                if charge_ratio < 0.5 {
+                if charge_ratio < 0.40 {
                     // Short press = small jump
                     velocity.y = SMALL_JUMP_STRENGTH;
                     velocity.jump_type = JumpType::Small;
