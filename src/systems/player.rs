@@ -108,15 +108,12 @@ pub fn player_movement(
         transform.translation.x = transform.translation.x.clamp(-350.0, 350.0);
 
 
-        // Check if jump button is pressed (Arrow Up, Space, or X)
-        let jump_button_pressed = keyboard_input.pressed(KeyCode::ArrowUp)
-            || keyboard_input.pressed(KeyCode::Space)
+        // Check if jump button is pressed (Space, or X)
+        let jump_button_pressed = keyboard_input.pressed(KeyCode::Space)
             || keyboard_input.pressed(KeyCode::KeyX);
-        let jump_button_just_pressed = keyboard_input.just_pressed(KeyCode::ArrowUp)
-            || keyboard_input.just_pressed(KeyCode::Space)
+        let jump_button_just_pressed = keyboard_input.just_pressed(KeyCode::Space)
             || keyboard_input.just_pressed(KeyCode::KeyX);
-        let jump_button_just_released = keyboard_input.just_released(KeyCode::ArrowUp)
-            || keyboard_input.just_released(KeyCode::Space)
+        let jump_button_just_released = keyboard_input.just_released(KeyCode::Space)
             || keyboard_input.just_released(KeyCode::KeyX);
 
         let is_on_ground = transform.translation.y <= GROUND_Y;
@@ -201,9 +198,21 @@ pub fn player_shooting(
     for (player_transform, player_velocity, mut shooting) in &mut player_query {
         shooting.timer -= time.delta_secs();
 
-        if keyboard_input.pressed(KeyCode::KeyS) && shooting.timer <= 0.0 {
+        if keyboard_input.pressed(KeyCode::KeyC) && shooting.timer <= 0.0 {
+            // Determine the cardinal shooting direction
+            let shoot_direction;
+
+            // Prioritize vertical over horizontal if both are pressed
+            if player_velocity.facing_direction.y > 0.0 { // Facing up
+                shoot_direction = Vec2::Y;
+            } else if player_velocity.facing_direction.x.abs() > 0.0 { // Facing left or right
+                shoot_direction = Vec2::X * player_velocity.facing_direction.x.signum();
+            } else { // Default to right if no clear direction (e.g., standing still)
+                shoot_direction = Vec2::X;
+            }
+
             // Prevent shooting downwards
-            if player_velocity.facing_direction.y < 0.0 {
+            if shoot_direction.y < 0.0 {
                 return;
             }
 
@@ -218,7 +227,7 @@ pub fn player_shooting(
                 MeshMaterial2d(materials.add(Color::srgb(1.0, 0.0, 0.0))),
                 projectile_transform,
                 Projectile {
-                    direction: player_velocity.facing_direction,
+                    direction: shoot_direction,
                 },
             ));
 
