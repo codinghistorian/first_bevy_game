@@ -17,3 +17,8 @@ pub const KNOCKBACK_FORCE: f32 = 700.0; // Initial force of knockback push (pixe
 pub const KNOCKBACK_DURATION: f32 = 0.5; // Duration of knockback effect (seconds)
 pub const KNOCKBACK_DECAY_RATE: f32 = 0.9; // Velocity decay per frame (0.0-1.0, higher = slower decay)
 pub const KNOCKBACK_MOVEMENT_REDUCTION: f32 = 0.3; // Player movement speed multiplier during knockback (0.0-1.0)
+
+// Knockback direction modifiers for different collision angles
+pub const KNOCKBACK_TOP_HORIZONTAL_COMPONENT: f32 = 0.6; // Horizontal component when hitting from top (0.0-1.0)
+pub const KNOCKBACK_TOP_VERTICAL_COMPONENT: f32 = 0.8; // Vertical component when hitting from top (0.0-1.0)
+pub const KNOCKBACK_SIDE_VERTICAL_COMPONENT: f32 = 0.3; // Vertical component when hitting from side (0.0-1.0, adds slight upward push)

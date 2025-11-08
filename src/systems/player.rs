@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::components::player::*;
 use crate::components::boss::*;
 use crate::stages::game_menu::SelectedCharacter;
-use crate::systems::config::{SMALL_JUMP_CHARGE_RATIO, KNOCKBACK_FORCE, KNOCKBACK_DURATION, KNOCKBACK_DECAY_RATE, KNOCKBACK_MOVEMENT_REDUCTION};
+use crate::systems::config::{SMALL_JUMP_CHARGE_RATIO, KNOCKBACK_FORCE, KNOCKBACK_DURATION, KNOCKBACK_DECAY_RATE, KNOCKBACK_MOVEMENT_REDUCTION, KNOCKBACK_TOP_HORIZONTAL_COMPONENT, KNOCKBACK_TOP_VERTICAL_COMPONENT, KNOCKBACK_SIDE_VERTICAL_COMPONENT};
 
 /// Spawns the ingame 2D game scene when entering the InGame state
 pub fn spawn_player_and_level(
@@ -439,6 +439,57 @@ fn check_aabb_collision(
         && pos1.y + half_size1.y > pos2.y - half_size2.y
 }
 
+/// Calculate improved knockback direction based on collision angle
+/// This makes knockback feel more dynamic and appropriate for different collision sides
+fn calculate_knockback_direction(
+    direction_to_player: Vec2,
+    player_pos: Vec3,
+    boss_pos: Vec3,
+) -> Vec2 {
+    use crate::systems::config::{KNOCKBACK_TOP_HORIZONTAL_COMPONENT, KNOCKBACK_TOP_VERTICAL_COMPONENT, KNOCKBACK_SIDE_VERTICAL_COMPONENT};
+    
+    if direction_to_player.length() < 0.001 {
+        // If positions are exactly the same, push to the left
+        return Vec2::new(-1.0, 0.0);
+    }
+    
+    let normalized = direction_to_player.normalize();
+    let dx = direction_to_player.x.abs();
+    let dy = direction_to_player.y.abs();
+    
+    // Determine which side of the boss the player is hitting
+    // If vertical distance is greater, it's a top/bottom collision
+    // If horizontal distance is greater, it's a left/right collision
+    if dy > dx {
+        // Top or bottom collision
+        if normalized.y > 0.0 {
+            // Player is above boss (hitting from top)
+            // Push upward and to the side for more dynamic feel
+            let horizontal_dir = if normalized.x > 0.0 { 1.0 } else { -1.0 };
+            Vec2::new(
+                horizontal_dir * KNOCKBACK_TOP_HORIZONTAL_COMPONENT,
+                KNOCKBACK_TOP_VERTICAL_COMPONENT,
+            ).normalize()
+        } else {
+            // Player is below boss (hitting from bottom)
+            // Push downward and to the side
+            let horizontal_dir = if normalized.x > 0.0 { 1.0 } else { -1.0 };
+            Vec2::new(
+                horizontal_dir * KNOCKBACK_TOP_HORIZONTAL_COMPONENT,
+                -KNOCKBACK_TOP_VERTICAL_COMPONENT,
+            ).normalize()
+        }
+    } else {
+        // Left or right collision (side collision)
+        // Push horizontally away with slight upward component for more dynamic feel
+        let horizontal_dir = if normalized.x > 0.0 { 1.0 } else { -1.0 };
+        Vec2::new(
+            horizontal_dir,
+            KNOCKBACK_SIDE_VERTICAL_COMPONENT,
+        ).normalize()
+    }
+}
+
 /// System to handle player-boss collision (player takes damage)
 pub fn player_boss_collision(
     time: Res<Time>,
@@ -477,14 +528,13 @@ pub fn player_boss_collision(
                 boss_transform.translation,
                 BOSS_SIZE,
             ) {
-                // Calculate knockback direction (push player away from boss)
+                // Calculate knockback direction based on collision side
                 let direction_to_player = (player_transform.translation - boss_transform.translation).truncate();
-                let knockback_direction = if direction_to_player.length() > 0.0 {
-                    direction_to_player.normalize()
-                } else {
-                    // If positions are exactly the same, push to the left
-                    Vec2::new(-1.0, 0.0)
-                };
+                let knockback_direction = calculate_knockback_direction(
+                    direction_to_player,
+                    player_transform.translation,
+                    boss_transform.translation,
+                );
                 
                 // Player takes damage
                 player_hp.current = (player_hp.current - DAMAGE).max(0.0);
