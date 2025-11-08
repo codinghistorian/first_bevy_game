@@ -1,0 +1,14 @@
+{
+  "attack": {
+    "type": "SingleShot",
+    "cooldown": 1.5,
+    "projectile_speed": 400.0
+  },
+  "movement": {
+    "type": "HorizontalPatrol",
+    "left_bound": 250.0,
+    "right_bound": 350.0,
+    "speed": 100.0
+  }
+}
+

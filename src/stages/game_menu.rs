@@ -57,6 +57,10 @@ pub struct DefeatedBoss {
     pub boss_type: Option<crate::components::boss::BossType>,
 }
 
+/// Resource to track whether to show the win screen (only for final stage)
+#[derive(Resource, Default)]
+pub struct ShowWinScreen(pub bool);
+
 
 
 /// Spawns a UI camera for rendering
@@ -355,13 +359,53 @@ pub fn spawn_game_win_screen(
 }
 
 /// Handles input for game over and win screens (restart functionality)
+/// Also handles automatic stage progression when player wins
 pub fn handle_game_end_input(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<GameState>>,
+    mut current_stage: ResMut<CurrentStage>,
 ) {
+    use crate::systems::config::MAX_STAGES;
+    
+    // Check if we're in win screen and should progress to next stage
+    // This runs every frame, so we check if we just entered GameWin
+    // If there are more stages, automatically transition to next stage
+    // Otherwise, wait for player input to restart
+    
+    // For now, we'll handle stage progression in a separate system
+    // that runs on entering GameWin state
+    
     if keyboard_input.just_pressed(KeyCode::Enter) || keyboard_input.just_pressed(KeyCode::Space) {
+        // Reset stage counter when restarting
+        current_stage.0 = 0;
         // Restart game by going back to character selection
         next_state.set(GameState::CharacterSelection);
+    }
+}
+
+/// System to handle stage progression when entering win screen
+pub fn handle_stage_progression(
+    mut current_stage: ResMut<CurrentStage>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut show_win_screen: ResMut<ShowWinScreen>,
+) {
+    use crate::systems::config::MAX_STAGES;
+    
+    // Check current stage BEFORE incrementing
+    let current_stage_num = current_stage.0;
+    
+    // If we're not at the final stage, automatically progress to next stage
+    if current_stage_num < MAX_STAGES {
+        // Move to next stage
+        current_stage.0 += 1;
+        // Don't show win screen - we're progressing to next stage
+        show_win_screen.0 = false;
+        // Transition back to InGame to load the next boss
+        // This will trigger OnExit(GameWin) and OnEnter(InGame), properly reloading everything
+        next_state.set(GameState::InGame);
+    } else {
+        // Final stage completed - show win screen
+        show_win_screen.0 = true;
     }
 }
 
@@ -371,6 +415,7 @@ impl Plugin for GameMenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SelectedCharacterIndex>()
             .init_resource::<DefeatedBoss>()
+            .init_resource::<ShowWinScreen>()
             .add_systems(Startup, spawn_ui_camera)
             .add_systems(OnEnter(GameState::CharacterSelection), spawn_character_selection_menu)
             .add_systems(
@@ -383,7 +428,10 @@ impl Plugin for GameMenuPlugin {
             )
             .add_systems(OnEnter(GameState::InGame), spawn_in_game_screen)
             .add_systems(OnEnter(GameState::GameOver), spawn_game_over_screen)
-            .add_systems(OnEnter(GameState::GameWin), spawn_game_win_screen)
+            .add_systems(OnEnter(GameState::GameWin), (
+                handle_stage_progression, // Check and progress stage FIRST (before showing win screen)
+                spawn_game_win_screen.run_if(|show_win: Res<ShowWinScreen>| show_win.0),
+            ))
             .add_systems(
                 Update,
                 (

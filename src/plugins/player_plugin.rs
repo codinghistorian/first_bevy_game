@@ -14,9 +14,11 @@ impl Plugin for PlayerPlugin {
             .init_resource::<BossPatternRegistry>()
             .init_resource::<CurrentStage>()
             .add_systems(OnEnter(GameState::InGame), (
-                // Initialize stage to 1 when entering game
+                // Initialize stage to 1 only if starting fresh (stage is 0)
                 |mut stage: ResMut<CurrentStage>| {
-                    stage.0 = 1;
+                    if stage.0 == 0 {
+                        stage.0 = 1;
+                    }
                 },
                 // Load boss pattern for current stage
                 load_stage_boss_pattern,

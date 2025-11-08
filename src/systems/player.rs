@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::components::player::*;
 use crate::components::boss::*;
 use crate::stages::game_menu::{SelectedCharacter, GameState, DefeatedBoss};
-use crate::systems::config::{SMALL_JUMP_CHARGE_RATIO, KNOCKBACK_FORCE, KNOCKBACK_DURATION, KNOCKBACK_DECAY_RATE, KNOCKBACK_MOVEMENT_REDUCTION, INVINCIBILITY_DURATION};
+use crate::systems::config::{SMALL_JUMP_CHARGE_RATIO, KNOCKBACK_FORCE, KNOCKBACK_DURATION, KNOCKBACK_DECAY_RATE, KNOCKBACK_MOVEMENT_REDUCTION, INVINCIBILITY_DURATION, MAX_STAGES};
 
 /// Spawns the ingame 2D game scene when entering the InGame state
 pub fn spawn_player_and_level(
@@ -637,6 +637,7 @@ pub fn check_game_outcome(
     boss_query: Query<(&Hp, &BossType), With<Boss>>,
     mut next_state: ResMut<NextState<GameState>>,
     mut defeated_boss: ResMut<DefeatedBoss>,
+    mut current_stage: ResMut<crate::stages::game_menu::CurrentStage>,
 ) {
     // Check if player is dead (lose condition)
     if let Ok(player_hp) = player_query.single() {
@@ -651,6 +652,9 @@ pub fn check_game_outcome(
         if boss_hp.current <= 0.0 {
             // Store which boss was defeated
             defeated_boss.boss_type = Some(*boss_type);
+            
+            // Always transition to GameWin screen
+            // The handle_stage_progression system will check if we should continue to next stage
             next_state.set(GameState::GameWin);
         }
     }
