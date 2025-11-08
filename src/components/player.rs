@@ -68,3 +68,10 @@ pub struct Shooting {
 pub struct Invincibility {
     pub timer: f32,
 }
+
+/// Component to track knockback effect (pushes player away when hit)
+#[derive(Component)]
+pub struct Knockback {
+    pub velocity: Vec2,
+    pub timer: f32,
+}

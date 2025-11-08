@@ -97,7 +97,7 @@ pub fn player_movement(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut player_query: Query<(Entity, &mut Transform, &mut PlayerVelocity, &mut JumpCharge, Option<&mut Dash>), With<Player>>,
+    mut player_query: Query<(Entity, &mut Transform, &mut PlayerVelocity, &mut JumpCharge, Option<&mut Dash>, Option<&Knockback>), With<Player>>,
 ) {
     const SPEED: f32 = 200.0; // Pixels per second
     const DASH_SPEED: f32 = 400.0; // Pixels per second
@@ -116,7 +116,7 @@ pub fn player_movement(
     
     const MAX_CHARGE_TIME: f32 = 0.2; // Maximum charge time for high jump (0.2 seconds)
 
-    for (entity, mut transform, mut velocity, mut jump_charge, dash) in &mut player_query {
+    for (entity, mut transform, mut velocity, mut jump_charge, dash, knockback) in &mut player_query {
         // Movement
         let mut direction = Vec2::ZERO;
 
@@ -147,7 +147,13 @@ pub fn player_movement(
             return; // No other movement during dash
         }
 
-        transform.translation.x += direction.x * SPEED * time.delta_secs();
+        // Apply movement, but reduce it if knockback is active
+        let movement_speed = if knockback.is_some() {
+            SPEED * 0.3 // Reduce movement speed during knockback
+        } else {
+            SPEED
+        };
+        transform.translation.x += direction.x * movement_speed * time.delta_secs();
         // Keep player within screen bounds
         transform.translation.x = transform.translation.x.clamp(-350.0, 350.0);
 
@@ -444,6 +450,8 @@ pub fn player_boss_collision(
     const BOSS_SIZE: Vec2 = Vec2::new(32.0, 64.0);
     const DAMAGE: f32 = 10.0;
     const INVINCIBILITY_DURATION: f32 = 1.0; // 1 second of invincibility after taking damage
+    const KNOCKBACK_FORCE: f32 = 300.0; // Force of knockback push
+    const KNOCKBACK_DURATION: f32 = 0.3; // Duration of knockback effect
 
     for (player_entity, player_transform, mut player_hp, invincibility) in &mut player_query {
         // Check if player is invincible
@@ -471,6 +479,15 @@ pub fn player_boss_collision(
                 boss_transform.translation,
                 BOSS_SIZE,
             ) {
+                // Calculate knockback direction (push player away from boss)
+                let direction_to_player = (player_transform.translation - boss_transform.translation).truncate();
+                let knockback_direction = if direction_to_player.length() > 0.0 {
+                    direction_to_player.normalize()
+                } else {
+                    // If positions are exactly the same, push to the left
+                    Vec2::new(-1.0, 0.0)
+                };
+                
                 // Player takes damage
                 player_hp.current = (player_hp.current - DAMAGE).max(0.0);
                 
@@ -479,9 +496,40 @@ pub fn player_boss_collision(
                     timer: INVINCIBILITY_DURATION,
                 });
                 
+                // Add knockback effect
+                commands.entity(player_entity).insert(Knockback {
+                    velocity: knockback_direction * KNOCKBACK_FORCE,
+                    timer: KNOCKBACK_DURATION,
+                });
+                
                 // Only process one collision per frame
                 break;
             }
+        }
+    }
+}
+
+/// System to apply knockback effect to player
+pub fn apply_knockback(
+    time: Res<Time>,
+    mut player_query: Query<(Entity, &mut Transform, &mut Knockback), With<Player>>,
+    mut commands: Commands,
+) {
+    for (entity, mut transform, mut knockback) in &mut player_query {
+        // Apply knockback velocity
+        transform.translation.x += knockback.velocity.x * time.delta_secs();
+        transform.translation.y += knockback.velocity.y * time.delta_secs();
+        
+        // Keep player within screen bounds even during knockback
+        transform.translation.x = transform.translation.x.clamp(-350.0, 350.0);
+        
+        // Decay knockback over time
+        knockback.velocity *= 0.9; // Reduce velocity each frame
+        knockback.timer -= time.delta_secs();
+        
+        // Remove knockback when timer expires
+        if knockback.timer <= 0.0 {
+            commands.entity(entity).remove::<Knockback>();
         }
     }
 }
