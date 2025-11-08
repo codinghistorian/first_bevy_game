@@ -29,3 +29,10 @@ pub enum JumpType {
 /// Marker component for the floor/platform
 #[derive(Component)]
 pub struct Floor;
+
+/// Component to track dashing state
+#[derive(Component)]
+pub struct Dash {
+    pub timer: f32,
+    pub direction: f32,
+}

@@ -1,0 +1,1 @@
+pub const SMALL_JUMP_CHARGE_RATIO: f32 = 0.42;

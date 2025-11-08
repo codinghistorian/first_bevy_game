@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use crate::components::player::*;
 use crate::stages::game_menu::SelectedCharacter;
+use crate::systems::config::SMALL_JUMP_CHARGE_RATIO;
 
 /// Spawns the ingame 2D game scene when entering the InGame state
 pub fn spawn_player_and_level(
@@ -45,11 +46,14 @@ pub fn spawn_player_and_level(
 
 /// Handles player movement (left/right) and jumping in the game
 pub fn player_movement(
+    mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut player_query: Query<(&mut Transform, &mut PlayerVelocity, &mut JumpCharge), With<Player>>,
+    mut player_query: Query<(Entity, &mut Transform, &mut PlayerVelocity, &mut JumpCharge, Option<&mut Dash>), With<Player>>,
 ) {
     const SPEED: f32 = 200.0; // Pixels per second
+    const DASH_SPEED: f32 = 400.0; // Pixels per second
+    const DASH_DURATION: f32 = 0.2; // Seconds
     const BASE_JUMP_STRENGTH: f32 = 400.0; // Base jump velocity in pixels per second
     const BASE_GRAVITY: f32 = 800.0; // Base gravity acceleration in pixels per second squared
     const GROUND_Y: f32 = -198.0; // Ground level (character center when on floor)
@@ -64,7 +68,7 @@ pub fn player_movement(
     
     const MAX_CHARGE_TIME: f32 = 0.2; // Maximum charge time for high jump (0.2 seconds)
 
-    for (mut transform, mut velocity, mut jump_charge) in &mut player_query {
+    for (entity, mut transform, mut velocity, mut jump_charge, dash) in &mut player_query {
         // Horizontal movement
         let mut direction = 0.0;
 
@@ -73,6 +77,15 @@ pub fn player_movement(
         }
         if keyboard_input.pressed(KeyCode::ArrowRight) {
             direction += 1.0;
+        }
+
+        if let Some(mut dash) = dash {
+            transform.translation.x += dash.direction * DASH_SPEED * time.delta_secs();
+            dash.timer -= time.delta_secs();
+            if dash.timer <= 0.0 {
+                commands.entity(entity).remove::<Dash>();
+            }
+            return; // No other movement during dash
         }
 
         if direction != 0.0 {
@@ -95,6 +108,16 @@ pub fn player_movement(
 
         let is_on_ground = transform.translation.y <= GROUND_Y;
 
+        // Dash
+        if keyboard_input.pressed(KeyCode::ArrowDown) && jump_button_just_pressed && is_on_ground {
+            let dash_direction = if direction != 0.0 { direction } else { 1.0 };
+            commands.entity(entity).insert(Dash {
+                timer: DASH_DURATION,
+                direction: dash_direction,
+            });
+            return; // No other movement during dash
+        }
+
         // Start charging jump when button is pressed on ground
         if jump_button_just_pressed && is_on_ground {
             jump_charge.is_charging = true;
@@ -113,7 +136,7 @@ pub fn player_movement(
                 let charge_ratio = (jump_charge.timer / MAX_CHARGE_TIME).clamp(0.0, 1.0);
                 
                 // Interpolate between small and high jump based on charge time
-                if charge_ratio < 0.43 {
+                if charge_ratio < SMALL_JUMP_CHARGE_RATIO {
                     // Short press = small jump
                     velocity.y = SMALL_JUMP_STRENGTH;
                     velocity.jump_type = JumpType::Small;
