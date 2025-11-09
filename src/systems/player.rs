@@ -387,20 +387,16 @@ pub fn setup_boss_hp_bar(mut commands: Commands, boss_query: Query<Entity, With<
         .spawn(Node {
             width: percent(100.0),
             height: percent(100.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
             ..default()
         })
         .with_children(|parent| {
-            // HP bar container positioned at top-right using margins (separate from player HP bar)
+            // HP bar container centered in the middle of the game field
             parent.spawn((
                 Node {
                     width: px(200.0),
                     height: px(30.0),
-                    margin: UiRect {
-                        left: px(0.0),
-                        top: px(50.0), // Positioned below player HP bar (10px top + 30px height + 10px gap = 50px)
-                        right: px(10.0),
-                        bottom: px(0.0),
-                    },
                     border: UiRect::all(px(2.0)),
                     ..default()
                 },
