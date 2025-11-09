@@ -587,7 +587,7 @@ pub fn setup_boss_hp_bar(mut commands: Commands, boss_query: Query<Entity, With<
         }
     };
 
-    commands.spawn(root_node).with_children(|parent| {
+    commands.spawn((root_node, BossHealthBarContainer)).with_children(|parent| {
         // HP bar container with configurable positioning
         let hp_bar_node = if BOSS_HP_BAR_USE_CENTER {
             // Centered - no margins needed

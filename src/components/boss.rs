@@ -190,6 +190,10 @@ impl Default for BossRegistry {
     }
 }
 
+/// Component to identify boss HP bar container nodes for cleanup
+#[derive(Component)]
+pub struct BossHealthBarContainer;
+
 impl BossRegistry {
     /// Get boss data by type
     pub fn get_boss_data(&self, boss_type: BossType) -> Option<&BossData> {
