@@ -25,6 +25,10 @@ pub struct HealthBarMask {
     pub entity: Entity,
 }
 
+/// A component to identify the circular HP bar background circle for cleanup purposes
+#[derive(Component)]
+pub struct HealthBarBackground;
+
 /// Component to track player velocity (for jumping and gravity)
 #[derive(Component)]
 pub struct PlayerVelocity {

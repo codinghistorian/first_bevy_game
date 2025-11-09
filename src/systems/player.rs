@@ -370,6 +370,7 @@ pub fn setup_player_hp_bar(
         Mesh2d(meshes.add(Circle::new(PLAYER_HP_BAR_RADIUS))),
         MeshMaterial2d(materials.add(Color::BLACK)),
         Transform::from_xyz(screen_x, screen_y, 2.0), // Z=2.0 to be above game elements
+        HealthBarBackground,
     ));
 
     // Spawn circular HP bar fill (inner circle that drains from top)

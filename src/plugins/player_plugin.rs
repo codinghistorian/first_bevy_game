@@ -1,5 +1,5 @@
 use crate::components::boss::{Boss, BossRegistry};
-use crate::components::player::{BoundaryWall, Floor, HealthBar, Player, Projectile};
+use crate::components::player::{BoundaryWall, Floor, HealthBar, HealthBarBackground, HealthBarMask, Player, Projectile};
 use crate::stages::game_menu::{CurrentStage, GameState, PlayerUpgrades, despawn_screen};
 use crate::systems::boss::{
     BossPatternRegistry, BossProjectile, boss_attacks, boss_movement, boss_projectile_movement,
@@ -72,6 +72,8 @@ impl Plugin for PlayerPlugin {
                     despawn_screen::<Floor>,
                     despawn_screen::<Projectile>,
                     despawn_screen::<HealthBar>,
+                    despawn_screen::<HealthBarBackground>,
+                    despawn_screen::<HealthBarMask>,
                     despawn_screen::<BossProjectile>,
                     despawn_screen::<BoundaryWall>,
                 ),
