@@ -418,7 +418,7 @@ pub fn update_health_bars(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // Update circular HP bars (player) - keep circle shape, only change color
-    for (health_bar, mut mesh_material) in circular_health_bar_query.iter_mut() {
+    for (health_bar, mesh_material) in circular_health_bar_query.iter_mut() {
         if let Ok(hp) = hp_query.get(health_bar.entity) {
             let health_percentage = (hp.current / hp.max).clamp(0.0, 1.0);
 

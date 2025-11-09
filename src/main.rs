@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{asset::AssetPlugin, prelude::*};
 
 mod components;
 mod plugins;
@@ -10,7 +10,10 @@ use stages::game_menu::{GameMenuPlugin, GameState, SelectedCharacter};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            file_path: ".".into(),
+            ..default()
+        }))
         .init_state::<GameState>()
         .init_resource::<SelectedCharacter>()
         .add_plugins(GameMenuPlugin)

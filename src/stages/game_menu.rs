@@ -2,7 +2,9 @@ use bevy::text::prelude::{TextColor, TextFont};
 use bevy::{
     color::palettes::basic::{BLACK, WHITE},
     prelude::*,
+    sprite::Anchor,
 };
+use crate::systems::config::{BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, BOUNDARY_BOTTOM};
 
 /// Game state to manage transitions between character selection and gameplay
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States, Component)]
@@ -67,9 +69,32 @@ pub enum UpgradeButton {
     ImproveDefense,
 }
 
-/// Resource to track which upgrade option is currently selected (0 = HP, 1 = Weapon, 2 = Defense)
+/// Resource to track which upgrade option is currently selected (0 = HP, 1 = Weapon)
 #[derive(Resource, Default)]
 pub struct SelectedUpgradeIndex(pub usize);
+
+/// Component for background images
+#[derive(Component)]
+pub struct BackgroundImage;
+
+/// Component to identify the UI camera
+#[derive(Component)]
+pub struct UiCamera;
+
+/// Resource to hold background image handles for each stage
+#[derive(Resource, Default)]
+pub struct BackgroundImages {
+    pub stage_1: Vec<Handle<Image>>,
+}
+
+impl BackgroundImages {
+    pub fn get_stage_images(&self, stage: u32) -> Option<&Vec<Handle<Image>>> {
+        match stage {
+            1 => Some(&self.stage_1),
+            _ => None,
+        }
+    }
+}
 
 /// Resource to store which boss was defeated (for win screen display)
 #[derive(Resource, Default)]
@@ -109,9 +134,73 @@ impl Default for PlayerUpgrades {
     }
 }
 
+/// Loads background images for each stage
+pub fn load_background_images(mut background_images: ResMut<BackgroundImages>, asset_server: Res<AssetServer>) {
+    info!("Loading background images for stage 1...");
+    let handles = vec![
+        asset_server.load("images/backgrounds/stage_1/stage_1_1.jpg"),
+        asset_server.load("images/backgrounds/stage_1/stage_1_2.jpg"),
+        asset_server.load("images/backgrounds/stage_1/stage_1_3.jpg"),
+        asset_server.load("images/backgrounds/stage_1/stage_1_4.jpg"),
+    ];
+    background_images.stage_1 = handles;
+    info!("Loaded {} background images for stage 1", background_images.stage_1.len());
+    for (i, handle) in background_images.stage_1.iter().enumerate() {
+        info!("Stage 1 image {}: handle id = {:?}", i + 1, handle.id());
+    }
+}
+
+/// Animates background images by cycling through frames
+pub fn animate_background(
+    time: Res<Time>,
+    mut timer: Local<f32>,
+    background_images: Res<BackgroundImages>,
+    current_stage: Res<CurrentStage>,
+    mut query: Query<&mut Sprite, With<BackgroundImage>>,
+) {
+    // Only animate if we have background images for this stage
+    if let Some(images) = background_images.get_stage_images(current_stage.0) {
+        if images.is_empty() {
+            return;
+        }
+
+        // Update timer
+        *timer += time.delta_secs();
+
+        // Change frame every 0.5 seconds (2 FPS for smooth animation)
+        if *timer >= 0.5 {
+            *timer = 0.0;
+
+            // Cycle through background images
+            for mut sprite in query.iter_mut() {
+                // Find current image index
+                let current_index = images.iter().position(|handle| handle.id() == sprite.image.id());
+                if let Some(current_index) = current_index {
+                    let next_index = (current_index + 1) % images.len();
+                    sprite.image = images[next_index].clone();
+                }
+            }
+        }
+    }
+}
+
+/// Despawns the UI camera (used when entering gameplay)
+pub fn despawn_ui_camera(mut commands: Commands, ui_camera_query: Query<Entity, With<UiCamera>>) {
+    for entity in ui_camera_query.iter() {
+        commands.entity(entity).despawn();
+    }
+}
+
 /// Spawns a UI camera for rendering
 pub fn spawn_ui_camera(mut commands: Commands) {
-    commands.spawn(Camera2d);
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: 1, // UI camera renders on top
+            ..default()
+        },
+        UiCamera,
+    ));
 }
 
 /// Spawns the character selection menu UI when entering the CharacterSelection state
@@ -219,12 +308,78 @@ pub fn spawn_character_selection_menu(mut commands: Commands) {
 }
 
 /// Spawns the ingame 2D game scene when entering the InGame state
-pub fn spawn_in_game_screen(mut commands: Commands) {
-    // Spawn game camera (separate from UI camera)
-    commands.spawn(Camera2d);
+pub fn spawn_in_game_screen(
+    mut commands: Commands,
+    background_images: Res<BackgroundImages>,
+    mut current_stage: ResMut<CurrentStage>,
+    asset_server: Res<AssetServer>,
+) {
+    // Spawn game camera (separate from UI camera) - use Camera2dBundle as recommended
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: 0, // Game camera renders first (background)
+            ..default()
+        },
+        Transform::default(),
+        GlobalTransform::default(),
+    ));
 
-    // Background color via clear color (black)
-    commands.insert_resource(ClearColor(Color::BLACK));
+    // Ensure the first gameplay entry starts at stage 1
+    if current_stage.0 == 0 {
+        current_stage.0 = 1;
+    }
+
+    let stage_number = current_stage.0;
+
+    // Spawn background image for current stage if available
+    if let Some(image_handles) = background_images.get_stage_images(stage_number) {
+        if !image_handles.is_empty() {
+            info!(
+                "Spawning background for stage {} with {} images",
+                stage_number,
+                image_handles.len()
+            );
+            
+            // Get the first image handle
+            let first_handle = &image_handles[0];
+            let load_state = asset_server.load_state(first_handle);
+            info!("First background image load state: {:?}, handle id: {:?}", load_state, first_handle.id());
+            
+            // Calculate background size to fit game boundaries
+            let bg_width = BOUNDARY_RIGHT - BOUNDARY_LEFT;
+            let bg_height = BOUNDARY_TOP - BOUNDARY_BOTTOM;
+            let bg_center_x = (BOUNDARY_LEFT + BOUNDARY_RIGHT) / 2.0;
+            let bg_center_y = (BOUNDARY_BOTTOM + BOUNDARY_TOP) / 2.0;
+            
+            info!(
+                "Background size: {}x{}, center: ({}, {})",
+                bg_width, bg_height, bg_center_x, bg_center_y
+            );
+            
+            // Spawn background sprite - ensure all required components are present
+            commands.spawn((
+                Sprite {
+                    image: first_handle.clone(),
+                    custom_size: Some(Vec2::new(bg_width, bg_height)),
+                    ..default()
+                },
+                Anchor::CENTER,
+                Transform::from_xyz(bg_center_x, bg_center_y, -10.0),
+                GlobalTransform::default(),
+                Visibility::Visible,
+                InheritedVisibility::default(),
+                ViewVisibility::default(),
+                BackgroundImage,
+            ));
+        } else {
+            warn!("No background images available for stage {}", current_stage.0);
+            commands.insert_resource(ClearColor(Color::BLACK));
+        }
+    } else {
+        info!("No background images configured for stage {}", current_stage.0);
+        commands.insert_resource(ClearColor(Color::BLACK));
+    }
 }
 
 /// Handles keyboard input for character selection
@@ -490,43 +645,6 @@ pub fn spawn_stage_upgrade_screen(
         })
         .id();
 
-    let defense_button_entity = commands
-        .spawn((
-            Button,
-            Node {
-                width: px(400.0),
-                height: px(120.0),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                row_gap: px(10.0),
-                padding: UiRect::all(px(20.0)),
-                border: UiRect::all(px(8.0)),
-                ..default()
-            },
-            BackgroundColor(Color::srgb(0.5, 0.5, 0.3)), // Yellow for defense
-            BorderColor::all(Color::srgb(0.4, 0.4, 0.2)), // Not selected
-            UpgradeButton::ImproveDefense,
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                Text::new("Improve Defense"),
-                TextFont {
-                    font_size: 32.0,
-                    ..default()
-                },
-                TextColor(WHITE.into()),
-            ));
-            parent.spawn((
-                Text::new("Reduce damage taken by 25%"),
-                TextFont {
-                    font_size: 20.0,
-                    ..default()
-                },
-                TextColor(WHITE.into()),
-            ));
-        })
-        .id();
 
     // Create the root menu container
     commands
@@ -564,7 +682,7 @@ pub fn spawn_stage_upgrade_screen(
                 TextColor(WHITE.into()),
             ));
 
-            // Button container with the three upgrade options
+            // Button container with the two upgrade options
             parent
                 .spawn(Node {
                     flex_direction: FlexDirection::Column,
@@ -573,8 +691,7 @@ pub fn spawn_stage_upgrade_screen(
                     ..default()
                 })
                 .add_child(hp_button_entity)
-                .add_child(weapon_button_entity)
-                .add_child(defense_button_entity);
+                .add_child(weapon_button_entity);
         });
 }
 
@@ -596,7 +713,7 @@ pub fn handle_upgrade_input(
     }
 
     if keyboard_input.just_pressed(KeyCode::ArrowDown) {
-        if selected_index.0 < 2 {
+        if selected_index.0 < 1 {
             selected_index.0 += 1;
         }
     }
@@ -606,7 +723,7 @@ pub fn handle_upgrade_input(
         let is_selected = match button {
             UpgradeButton::IncreaseHp => selected_index.0 == 0,
             UpgradeButton::AcquireWeapon => selected_index.0 == 1,
-            UpgradeButton::ImproveDefense => selected_index.0 == 2,
+            UpgradeButton::ImproveDefense => false, // Not used anymore
         };
 
         if is_selected {
@@ -644,12 +761,6 @@ pub fn handle_upgrade_input(
                     player_upgrades.boss_weapon_type = Some(boss_type);
                 }
                 info!("Selected upgrade: Acquire Boss Weapon");
-            }
-            2 => {
-                // Improve defense
-                player_upgrades.defense_multiplier =
-                    (player_upgrades.defense_multiplier - 0.25).max(0.0);
-                info!("Selected upgrade: Improve Defense");
             }
             _ => {}
         }
@@ -707,7 +818,8 @@ impl Plugin for GameMenuPlugin {
             .init_resource::<DefeatedBoss>()
             .init_resource::<ShowWinScreen>()
             .init_resource::<PlayerUpgrades>()
-            .add_systems(Startup, spawn_ui_camera)
+            .init_resource::<BackgroundImages>()
+            .add_systems(Startup, (spawn_ui_camera, load_background_images))
             .add_systems(
                 OnEnter(GameState::CharacterSelection),
                 spawn_character_selection_menu,
@@ -720,7 +832,12 @@ impl Plugin for GameMenuPlugin {
                 OnExit(GameState::CharacterSelection),
                 despawn_screen::<CharacterSelectionMenu>,
             )
-            .add_systems(OnEnter(GameState::InGame), spawn_in_game_screen)
+            .add_systems(OnEnter(GameState::InGame), (despawn_ui_camera, spawn_in_game_screen))
+            .add_systems(
+                Update,
+                (animate_background).run_if(in_state(GameState::InGame)),
+            )
+            .add_systems(OnExit(GameState::InGame), spawn_ui_camera)
             .add_systems(OnEnter(GameState::GameOver), spawn_game_over_screen)
             .add_systems(
                 OnEnter(GameState::StageUpgrade),

@@ -1,6 +1,6 @@
 use crate::components::boss::{Boss, BossHealthBarContainer, BossRegistry};
 use crate::components::player::{BoundaryWall, Floor, HealthBar, HealthBarBackground, HealthBarMask, Player, Projectile};
-use crate::stages::game_menu::{CurrentStage, GameState, PlayerUpgrades, despawn_screen};
+use crate::stages::game_menu::{BackgroundImage, CurrentStage, GameState, PlayerUpgrades, despawn_screen};
 use crate::systems::boss::{
     BossPatternRegistry, BossProjectile, boss_attacks, boss_movement, boss_projectile_movement,
     boss_projectile_player_collision, load_stage_boss_pattern, setup_boss_hp_bar,
@@ -77,6 +77,7 @@ impl Plugin for PlayerPlugin {
                     despawn_screen::<HealthBarBackground>,
                     despawn_screen::<HealthBarMask>,
                     despawn_screen::<BossHealthBarContainer>,
+                    despawn_screen::<BackgroundImage>,
                     despawn_screen::<BossProjectile>,
                     despawn_screen::<BoundaryWall>,
                 ),
