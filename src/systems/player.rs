@@ -374,49 +374,6 @@ pub fn setup_player_hp_bar(mut commands: Commands, player_query: Query<Entity, W
         });
 }
 
-/// Spawns the boss's HP bar.
-pub fn setup_boss_hp_bar(mut commands: Commands, boss_query: Query<Entity, With<Boss>>) {
-    let Ok(boss) = boss_query.single() else {
-        // Boss doesn't exist yet, skip creating HP bar
-        return;
-    };
-
-    // --- Boss HP Bar ---
-    // Create a completely separate root container for the boss HP bar
-    commands
-        .spawn(Node {
-            width: percent(100.0),
-            height: percent(100.0),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        })
-        .with_children(|parent| {
-            // HP bar container centered in the middle of the game field
-            parent.spawn((
-                Node {
-                    width: px(200.0),
-                    height: px(30.0),
-                    border: UiRect::all(px(2.0)),
-                    ..default()
-                },
-                BackgroundColor(Color::BLACK.into()),
-            ))
-            .with_children(|hp_parent| {
-                // HP bar fill
-                hp_parent.spawn((
-                    Node {
-                        width: percent(100.0),
-                        height: percent(100.0),
-                        ..default()
-                    },
-                    BackgroundColor(Color::srgb(1.0, 0.0, 0.0).into()), // Red for boss
-                    HealthBar { entity: boss },
-                ));
-            });
-        });
-}
-
 /// System to update the width of health bars based on the entity's HP.
 pub fn update_health_bars(
     hp_query: Query<&Hp>,
