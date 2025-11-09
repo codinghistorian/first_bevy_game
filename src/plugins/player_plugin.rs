@@ -40,7 +40,7 @@ impl Plugin for PlayerPlugin {
                     boss_movement, // Boss movement system
                     boss_attacks, // Boss attack system
                     boss_projectile_movement, // Boss projectile movement
-                    boss_projectile_player_collision, // Boss projectile hits player
+                    boss_projectile_player_collision.after(boss_projectile_movement), // Boss projectile hits player (after movement)
                     player_boss_collision,
                     projectile_boss_collision,
                     check_game_outcome, // Check for win/lose conditions

@@ -420,10 +420,12 @@ pub fn boss_projectile_player_collision(
     time: Res<Time>,
     player_upgrades: Option<Res<crate::stages::game_menu::PlayerUpgrades>>,
 ) {
+    use crate::systems::config::INVINCIBILITY_DURATION;
+    use crate::systems::player::check_aabb_collision;
+    
     const PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
     const PLAYER_SIZE: Vec2 = Vec2::new(32.0, 64.0);
     const BASE_DAMAGE: f32 = 15.0;
-    const INVINCIBILITY_DURATION: f32 = 0.5;
     
     // Apply defense multiplier to damage
     let defense_multiplier = player_upgrades.as_ref().map(|u| u.defense_multiplier).unwrap_or(1.0);
@@ -448,15 +450,13 @@ pub fn boss_projectile_player_collision(
                 continue;
             }
 
-            // Check collision
-            let half_projectile = PROJECTILE_SIZE * 0.5;
-            let half_player = PLAYER_SIZE * 0.5;
-            
-            if projectile_transform.translation.x - half_projectile.x < player_transform.translation.x + half_player.x
-                && projectile_transform.translation.x + half_projectile.x > player_transform.translation.x - half_player.x
-                && projectile_transform.translation.y - half_projectile.y < player_transform.translation.y + half_player.y
-                && projectile_transform.translation.y + half_projectile.y > player_transform.translation.y - half_player.y
-            {
+            // Check collision using the same AABB function as other collisions
+            if check_aabb_collision(
+                projectile_transform.translation,
+                PROJECTILE_SIZE,
+                player_transform.translation,
+                PLAYER_SIZE,
+            ) {
                 // Calculate knockback direction: push player away from the boss (same direction as projectile was traveling)
                 // The projectile direction points from boss toward player, so we use the same direction
                 // to push the player further away from the boss

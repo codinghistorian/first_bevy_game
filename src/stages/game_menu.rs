@@ -398,8 +398,8 @@ pub fn spawn_game_win_screen(
 /// Spawns the stage upgrade screen (intermediate screen between stages)
 pub fn spawn_stage_upgrade_screen(
     mut commands: Commands,
-    defeated_boss: Res<DefeatedBoss>,
-    current_stage: Res<CurrentStage>,
+    _defeated_boss: Res<DefeatedBoss>,
+    _current_stage: Res<CurrentStage>,
 ) {
     // Create three upgrade option buttons
     let hp_button_entity = commands.spawn((
@@ -653,7 +653,7 @@ pub fn handle_game_end_input(
 
 /// System to handle stage progression when entering win screen
 pub fn handle_stage_progression(
-    mut current_stage: ResMut<CurrentStage>,
+    current_stage: Res<CurrentStage>,
     mut next_state: ResMut<NextState<GameState>>,
     mut show_win_screen: ResMut<ShowWinScreen>,
 ) {

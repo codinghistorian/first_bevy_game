@@ -17,6 +17,14 @@ pub struct HealthBar {
     pub entity: Entity,
 }
 
+/// A mask component for the circular player HP bar. This is used to hide the top
+/// portion of the circular fill so the bar appears to drain from the top in a
+/// linear, damage-proportional way.
+#[derive(Component)]
+pub struct HealthBarMask {
+    pub entity: Entity,
+}
+
 /// Component to track player velocity (for jumping and gravity)
 #[derive(Component)]
 pub struct PlayerVelocity {
