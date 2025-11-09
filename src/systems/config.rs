@@ -48,3 +48,11 @@ pub const BOUNDARY_WALL_THICKNESS: f32 = 4.0; // Thickness of boundary wall line
 // Player HP Bar UI positioning
 pub const PLAYER_HP_BAR_RADIUS: f32 = 30.0; // Radius of the circular HP bar in pixels
 pub const PLAYER_HP_BAR_MARGIN_LEFT: f32 = 20.0; // Left margin from screen edge
+
+// Damage values for collisions
+pub const BOSS_COLLISION_DAMAGE: f32 = 10.0; // Damage dealt by boss body collision with player
+pub const PLAYER_PROJECTILE_DAMAGE: f32 = 20.0; // Damage dealt by player projectiles to boss
+pub const BOSS_PROJECTILE_DAMAGE: f32 = 15.0; // Damage dealt by boss projectiles to player
+
+// Upgrade values
+pub const HP_RESTORATION_AMOUNT: f32 = 25.0; // Amount of HP restored when choosing HP upgrade

@@ -85,6 +85,7 @@ pub struct ShowWinScreen(pub bool);
 #[derive(Resource)]
 pub struct PlayerUpgrades {
     pub max_hp_bonus: f32,       // Additional HP added to base max HP
+    pub current_hp: f32,         // Current HP that persists between stages
     pub defense_multiplier: f32, // Damage reduction (1.0 = no reduction, 0.5 = 50% less damage)
     pub has_boss_weapon: bool,   // Whether player has acquired boss weapon
     pub boss_weapon_type: Option<crate::components::boss::BossType>, // Which boss weapon was acquired
@@ -100,6 +101,7 @@ impl Default for PlayerUpgrades {
     fn default() -> Self {
         Self {
             max_hp_bonus: 0.0,
+            current_hp: 100.0, // Start with base max HP
             defense_multiplier: 1.0, // Start with no defense bonus
             has_boss_weapon: false,
             boss_weapon_type: None,
@@ -432,7 +434,7 @@ pub fn spawn_stage_upgrade_screen(
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("Increase Max HP"),
+                Text::new("Restore HP"),
                 TextFont {
                     font_size: 32.0,
                     ..default()
@@ -440,7 +442,7 @@ pub fn spawn_stage_upgrade_screen(
                 TextColor(WHITE.into()),
             ));
             parent.spawn((
-                Text::new("+50 Max HP"),
+                Text::new("+25 HP"),
                 TextFont {
                     font_size: 24.0,
                     ..default()
@@ -630,9 +632,10 @@ pub fn handle_upgrade_input(
     if keyboard_input.just_pressed(KeyCode::Enter) || keyboard_input.just_pressed(KeyCode::Space) {
         match selected_index.0 {
             0 => {
-                // Increase HP
-                player_upgrades.max_hp_bonus += 50.0;
-                info!("Selected upgrade: Increase Max HP");
+                // Restore HP
+                let max_hp = 100.0 + player_upgrades.max_hp_bonus;
+                player_upgrades.current_hp = (player_upgrades.current_hp + crate::systems::config::HP_RESTORATION_AMOUNT).min(max_hp);
+                info!("Selected upgrade: Restore HP (+{})", crate::systems::config::HP_RESTORATION_AMOUNT);
             }
             1 => {
                 // Acquire boss weapon

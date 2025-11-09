@@ -31,6 +31,12 @@ pub fn spawn_player_and_level(
         .unwrap_or(0.0);
     let max_hp = base_max_hp + max_hp_bonus;
 
+    // Use preserved current HP if available, otherwise start with full HP
+    let current_hp = player_upgrades
+        .as_ref()
+        .map(|u| u.current_hp.min(max_hp)) // Ensure current HP doesn't exceed new max HP
+        .unwrap_or(max_hp);
+
     // Spawn the player character as a rectangle
     // Floor top is at y = -230 (floor center -250 + half-height 20)
     // Character center should be at floor top + character half-height = -230 + 32 = -198
@@ -40,7 +46,7 @@ pub fn spawn_player_and_level(
         Transform::from_xyz(0.0, -198.0, 1.0), // Positioned on top of the floor
         Player,
         Hp {
-            current: max_hp, // Start with full HP (including upgrades)
+            current: current_hp, // Start with preserved HP or full HP
             max: max_hp,
         },
         PlayerVelocity {
@@ -619,14 +625,13 @@ pub fn player_boss_collision(
 ) {
     const PLAYER_SIZE: Vec2 = Vec2::new(32.0, 64.0);
     const BOSS_SIZE: Vec2 = Vec2::new(32.0, 64.0);
-    const BASE_DAMAGE: f32 = 10.0;
 
     // Apply defense multiplier to damage
     let defense_multiplier = player_upgrades
         .as_ref()
         .map(|u| u.defense_multiplier)
         .unwrap_or(1.0);
-    let DAMAGE = BASE_DAMAGE * defense_multiplier;
+    let DAMAGE = crate::systems::config::BOSS_COLLISION_DAMAGE * defense_multiplier;
 
     for (player_entity, player_transform, mut player_hp, invincibility) in &mut player_query {
         // Check if player is invincible
@@ -726,7 +731,7 @@ pub fn projectile_boss_collision(
 ) {
     const PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
     const BOSS_SIZE: Vec2 = Vec2::new(32.0, 64.0);
-    const DAMAGE: f32 = 20.0;
+    const DAMAGE: f32 = crate::systems::config::PLAYER_PROJECTILE_DAMAGE;
 
     for (projectile_entity, projectile_transform) in &projectile_query {
         for (boss_transform, mut boss_hp) in &mut boss_query {
@@ -749,6 +754,17 @@ pub fn projectile_boss_collision(
                 break;
             }
         }
+    }
+}
+
+/// System to persist player HP to PlayerUpgrades resource
+pub fn persist_player_hp(
+    player_query: Query<&Hp, With<Player>>,
+    mut player_upgrades: ResMut<PlayerUpgrades>,
+) {
+    if let Ok(player_hp) = player_query.single() {
+        // Update the persisted current HP
+        player_upgrades.current_hp = player_hp.current;
     }
 }
 

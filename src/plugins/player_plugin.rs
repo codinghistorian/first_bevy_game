@@ -7,7 +7,7 @@ use crate::systems::boss::{
 };
 use crate::systems::boundaries::spawn_boundaries;
 use crate::systems::player::{
-    apply_knockback, change_health, check_game_outcome, player_boss_collision, player_movement,
+    apply_knockback, change_health, check_game_outcome, persist_player_hp, player_boss_collision, player_movement,
     player_shooting, projectile_boss_collision, projectile_movement, setup_player_hp_bar,
     spawn_boss, spawn_player_and_level, update_health_bars,
 };
@@ -58,6 +58,7 @@ impl Plugin for PlayerPlugin {
                     boss_projectile_player_collision.after(boss_projectile_movement), // Boss projectile hits player (after movement)
                     player_boss_collision,
                     projectile_boss_collision,
+                    persist_player_hp, // Persist player HP to upgrades resource
                     check_game_outcome, // Check for win/lose conditions
                     update_health_bars,
                     change_health,
@@ -67,6 +68,7 @@ impl Plugin for PlayerPlugin {
             .add_systems(
                 OnExit(GameState::InGame),
                 (
+                    persist_player_hp, // Save HP before despawning
                     despawn_screen::<Player>,
                     despawn_screen::<Boss>,
                     despawn_screen::<Floor>,

@@ -494,14 +494,13 @@ pub fn boss_projectile_player_collision(
 
     const PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
     const PLAYER_SIZE: Vec2 = Vec2::new(32.0, 64.0);
-    const BASE_DAMAGE: f32 = 15.0;
 
     // Apply defense multiplier to damage
     let defense_multiplier = player_upgrades
         .as_ref()
         .map(|u| u.defense_multiplier)
         .unwrap_or(1.0);
-    let DAMAGE = BASE_DAMAGE * defense_multiplier;
+    let DAMAGE = crate::systems::config::BOSS_PROJECTILE_DAMAGE * defense_multiplier;
 
     for (projectile_entity, projectile_transform, projectile) in &projectile_query {
         for (player_entity, player_transform, mut player_hp, invincibility) in &mut player_query {
