@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use crate::components::boss::*;
 use crate::components::player::*;
-use crate::systems::config::{KNOCKBACK_FORCE, KNOCKBACK_DURATION};
+use crate::systems::config::{KNOCKBACK_FORCE, KNOCKBACK_DURATION, BOSS_HP_BAR_WIDTH, BOSS_HP_BAR_HEIGHT, BOSS_HP_BAR_MARGIN_TOP, BOSS_HP_BAR_MARGIN_BOTTOM, BOSS_HP_BAR_MARGIN_LEFT, BOSS_HP_BAR_MARGIN_RIGHT, BOSS_HP_BAR_USE_CENTER};
 
 /// JSON structure for boss attack patterns
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -478,23 +478,56 @@ pub fn setup_boss_hp_bar(mut commands: Commands, boss_query: Query<Entity, With<
 
     // --- Boss HP Bar ---
     // Create a completely separate root container for the boss HP bar
-    commands
-        .spawn(Node {
+    let root_node = if BOSS_HP_BAR_USE_CENTER {
+        // Use center alignment
+        Node {
             width: percent(100.0),
             height: percent(100.0),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
-        })
+        }
+    } else {
+        // Use margin-based positioning with horizontal centering
+        Node {
+            width: percent(100.0),
+            height: percent(100.0),
+            justify_content: JustifyContent::Center, // Center horizontally
+            align_items: AlignItems::FlexStart, // Align to top for margin-based vertical positioning
+            ..default()
+        }
+    };
+
+    commands
+        .spawn(root_node)
         .with_children(|parent| {
-            // HP bar container centered in the middle of the game field
-            parent.spawn((
+            // HP bar container with configurable positioning
+            let hp_bar_node = if BOSS_HP_BAR_USE_CENTER {
+                // Centered - no margins needed
                 Node {
-                    width: px(200.0),
-                    height: px(30.0),
+                    width: px(BOSS_HP_BAR_WIDTH),
+                    height: px(BOSS_HP_BAR_HEIGHT),
                     border: UiRect::all(px(2.0)),
                     ..default()
-                },
+                }
+            } else {
+                // Margin-based positioning
+                Node {
+                    width: px(BOSS_HP_BAR_WIDTH),
+                    height: px(BOSS_HP_BAR_HEIGHT),
+                    margin: UiRect {
+                        left: px(BOSS_HP_BAR_MARGIN_LEFT),
+                        top: px(BOSS_HP_BAR_MARGIN_TOP),
+                        right: px(BOSS_HP_BAR_MARGIN_RIGHT),
+                        bottom: px(BOSS_HP_BAR_MARGIN_BOTTOM),
+                    },
+                    border: UiRect::all(px(2.0)),
+                    ..default()
+                }
+            };
+
+            parent.spawn((
+                hp_bar_node,
                 BackgroundColor(Color::BLACK.into()),
             ))
             .with_children(|hp_parent| {
