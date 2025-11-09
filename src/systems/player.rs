@@ -1,9 +1,13 @@
-use bevy::prelude::*;
-use crate::components::player::*;
 use crate::components::boss::*;
-use crate::stages::game_menu::{SelectedCharacter, GameState, DefeatedBoss};
-use crate::systems::config::{SMALL_JUMP_CHARGE_RATIO, KNOCKBACK_FORCE, KNOCKBACK_DURATION, KNOCKBACK_DECAY_RATE, KNOCKBACK_MOVEMENT_REDUCTION, INVINCIBILITY_DURATION, BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, BOUNDARY_BOTTOM, PLAYER_HP_BAR_RADIUS, PLAYER_HP_BAR_MARGIN_LEFT};
+use crate::components::player::*;
 use crate::stages::game_menu::PlayerUpgrades;
+use crate::stages::game_menu::{DefeatedBoss, GameState, SelectedCharacter};
+use crate::systems::config::{
+    BOUNDARY_BOTTOM, BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, INVINCIBILITY_DURATION,
+    KNOCKBACK_DECAY_RATE, KNOCKBACK_DURATION, KNOCKBACK_FORCE, KNOCKBACK_MOVEMENT_REDUCTION,
+    PLAYER_HP_BAR_MARGIN_LEFT, PLAYER_HP_BAR_RADIUS, SMALL_JUMP_CHARGE_RATIO,
+};
+use bevy::prelude::*;
 
 /// Spawns the ingame 2D game scene when entering the InGame state
 pub fn spawn_player_and_level(
@@ -21,7 +25,10 @@ pub fn spawn_player_and_level(
 
     // Calculate HP with upgrades
     let base_max_hp = 100.0;
-    let max_hp_bonus = player_upgrades.as_ref().map(|u| u.max_hp_bonus).unwrap_or(0.0);
+    let max_hp_bonus = player_upgrades
+        .as_ref()
+        .map(|u| u.max_hp_bonus)
+        .unwrap_or(0.0);
     let max_hp = base_max_hp + max_hp_bonus;
 
     // Spawn the player character as a rectangle
@@ -36,7 +43,7 @@ pub fn spawn_player_and_level(
             current: max_hp, // Start with full HP (including upgrades)
             max: max_hp,
         },
-        PlayerVelocity { 
+        PlayerVelocity {
             y: 0.0,
             jump_type: JumpType::None,
             facing_direction: Vec2::new(1.0, 0.0),
@@ -45,16 +52,14 @@ pub fn spawn_player_and_level(
             timer: 0.0,
             is_charging: false,
         },
-        Shooting {
-            timer: 0.0,
-        },
+        Shooting { timer: 0.0 },
     ));
 
     // Spawn the floor/platform at the bottom
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::new(800.0, 40.0))), // Wide floor
         MeshMaterial2d(materials.add(Color::srgb(0.3, 0.3, 0.3))), // Gray floor
-        Transform::from_xyz(0.0, -250.0, 0.0), // Position at bottom
+        Transform::from_xyz(0.0, -250.0, 0.0),           // Position at bottom
         Floor,
     ));
 }
@@ -69,7 +74,7 @@ pub fn spawn_boss(
     current_stage: Option<Res<crate::stages::game_menu::CurrentStage>>,
 ) {
     use crate::systems::boss::{convert_attack_pattern, convert_movement_pattern};
-    
+
     // Get boss data from registry or use default
     let mut boss_data = boss_registry
         .as_ref()
@@ -81,7 +86,7 @@ pub fn spawn_boss(
     if let (Some(registry), Some(stage)) = (pattern_registry.as_ref(), current_stage.as_ref()) {
         let stage_num = stage.0;
         let pattern_name = format!("stage_{}", stage_num);
-        
+
         if let Some(pattern_config) = registry.get_pattern(&pattern_name) {
             // Convert JSON patterns to internal patterns
             boss_data.attack_pattern = convert_attack_pattern(&pattern_config.attack);
@@ -114,13 +119,22 @@ pub fn spawn_boss(
     // }
 }
 
-
 /// Handles player movement (left/right) and jumping in the game
 pub fn player_movement(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut player_query: Query<(Entity, &mut Transform, &mut PlayerVelocity, &mut JumpCharge, Option<&mut Dash>, Option<&Knockback>), With<Player>>,
+    mut player_query: Query<
+        (
+            Entity,
+            &mut Transform,
+            &mut PlayerVelocity,
+            &mut JumpCharge,
+            Option<&mut Dash>,
+            Option<&Knockback>,
+        ),
+        With<Player>,
+    >,
 ) {
     const SPEED: f32 = 200.0; // Pixels per second
     const DASH_SPEED: f32 = 400.0; // Pixels per second
@@ -128,18 +142,19 @@ pub fn player_movement(
     const BASE_JUMP_STRENGTH: f32 = 400.0; // Base jump velocity in pixels per second
     const BASE_GRAVITY: f32 = 800.0; // Base gravity acceleration in pixels per second squared
     const GROUND_Y: f32 = -198.0; // Ground level (character center when on floor)
-    
+
     // High jump: 10% higher (1.1x), 10% faster gravity (1.1x)
     const HIGH_JUMP_STRENGTH: f32 = 620.0; // 440.0
     const HIGH_JUMP_GRAVITY: f32 = 1200.0; // 880.0
-    
+
     // Small jump: 40% of base jump (0.4x), 20% faster gravity (1.2x)
     const SMALL_JUMP_STRENGTH: f32 = 350.5; // 160.0
     const SMALL_JUMP_GRAVITY: f32 = BASE_GRAVITY * 1.2; // 960.0
-    
+
     const MAX_CHARGE_TIME: f32 = 0.2; // Maximum charge time for high jump (0.2 seconds)
 
-    for (entity, mut transform, mut velocity, mut jump_charge, dash, knockback) in &mut player_query {
+    for (entity, mut transform, mut velocity, mut jump_charge, dash, knockback) in &mut player_query
+    {
         // Movement
         let mut direction = Vec2::ZERO;
 
@@ -181,10 +196,9 @@ pub fn player_movement(
         transform.translation.x = transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
         transform.translation.y = transform.translation.y.clamp(BOUNDARY_BOTTOM, BOUNDARY_TOP);
 
-
         // Check if jump button is pressed (Space, or X)
-        let jump_button_pressed = keyboard_input.pressed(KeyCode::Space)
-            || keyboard_input.pressed(KeyCode::KeyX);
+        let jump_button_pressed =
+            keyboard_input.pressed(KeyCode::Space) || keyboard_input.pressed(KeyCode::KeyX);
         let jump_button_just_pressed = keyboard_input.just_pressed(KeyCode::Space)
             || keyboard_input.just_pressed(KeyCode::KeyX);
         let jump_button_just_released = keyboard_input.just_released(KeyCode::Space)
@@ -217,7 +231,7 @@ pub fn player_movement(
             if is_on_ground {
                 // Calculate jump strength based on charge time
                 let charge_ratio = (jump_charge.timer / MAX_CHARGE_TIME).clamp(0.0, 1.0);
-                
+
                 // Interpolate between small and high jump based on charge time
                 if charge_ratio < SMALL_JUMP_CHARGE_RATIO {
                     // Short press = small jump
@@ -229,12 +243,12 @@ pub fn player_movement(
                     velocity.jump_type = JumpType::High;
                 }
             }
-            
+
             // Reset charge
             jump_charge.is_charging = false;
             jump_charge.timer = 0.0;
         }
-        
+
         // Determine gravity based on current jump type
         let current_gravity = match velocity.jump_type {
             JumpType::High => HIGH_JUMP_GRAVITY,
@@ -277,11 +291,14 @@ pub fn player_shooting(
             let shoot_direction;
 
             // Prioritize vertical over horizontal if both are pressed
-            if player_velocity.facing_direction.y > 0.0 { // Facing up
+            if player_velocity.facing_direction.y > 0.0 {
+                // Facing up
                 shoot_direction = Vec2::Y;
-            } else if player_velocity.facing_direction.x.abs() > 0.0 { // Facing left or right
+            } else if player_velocity.facing_direction.x.abs() > 0.0 {
+                // Facing left or right
                 shoot_direction = Vec2::X * player_velocity.facing_direction.x.signum();
-            } else { // Default to right if no clear direction (e.g., standing still)
+            } else {
+                // Default to right if no clear direction (e.g., standing still)
                 shoot_direction = Vec2::X;
             }
 
@@ -322,8 +339,11 @@ pub fn projectile_movement(
         transform.translation.y += projectile.direction.y * PROJECTILE_SPEED * time.delta_secs();
 
         // Despawn projectile after it goes outside boundaries
-        if transform.translation.x < BOUNDARY_LEFT || transform.translation.x > BOUNDARY_RIGHT
-            || transform.translation.y < BOUNDARY_BOTTOM || transform.translation.y > BOUNDARY_TOP {
+        if transform.translation.x < BOUNDARY_LEFT
+            || transform.translation.x > BOUNDARY_RIGHT
+            || transform.translation.y < BOUNDARY_BOTTOM
+            || transform.translation.y > BOUNDARY_TOP
+        {
             commands.entity(entity).despawn();
         }
     }
@@ -355,12 +375,12 @@ pub fn setup_player_hp_bar(
     // Spawn circular HP bar fill (inner circle that drains from top)
     // We'll use a rectangle mask approach: the fill circle is clipped from the top based on HP
     let fill_radius = PLAYER_HP_BAR_RADIUS - 4.0; // Slightly smaller for border effect
-    
+
     // Create the fill circle
     commands.spawn((
         Mesh2d(meshes.add(Circle::new(fill_radius))),
         MeshMaterial2d(materials.add(Color::srgb(0.0, 1.0, 0.0))), // Green
-        Transform::from_xyz(screen_x, screen_y, 2.1), // Slightly above background
+        Transform::from_xyz(screen_x, screen_y, 2.1),              // Slightly above background
         HealthBar { entity: player },
     ));
 
@@ -380,7 +400,10 @@ pub fn setup_player_hp_bar(
 pub fn update_health_bars(
     hp_query: Query<&Hp>,
     // Query for circular HP bars (player) - uses Mesh2d with Transform and MeshMaterial2d
-    mut circular_health_bar_query: Query<(&HealthBar, &mut MeshMaterial2d<ColorMaterial>), (With<Mesh2d>, Without<Node>, Without<HealthBarMask>)>,
+    mut circular_health_bar_query: Query<
+        (&HealthBar, &mut MeshMaterial2d<ColorMaterial>),
+        (With<Mesh2d>, Without<Node>, Without<HealthBarMask>),
+    >,
     // Query for circular HP mask rectangles (player), disjoint from the fill
     mut mask_query: Query<(&HealthBarMask, &mut Transform), (Without<HealthBar>,)>,
     // Query for rectangular HP bars (boss) - uses UI Node
@@ -402,7 +425,7 @@ pub fn update_health_bars(
                 let t = health_percentage * 2.0;
                 Color::srgb(1.0, t, 0.0)
             };
-            
+
             // Update the material color
             if let Some(material) = materials.get_mut(&mesh_material.0) {
                 material.color = color;
@@ -414,14 +437,21 @@ pub fn update_health_bars(
     for (mask, mut transform) in mask_query.iter_mut() {
         if let Ok(hp) = hp_query.get(mask.entity) {
             let health_percentage = (hp.current / hp.max).clamp(0.0, 1.0);
-            let missing = (1.0 - health_percentage).clamp(0.0, 1.0);
+            let missing_fraction = (1.0 - health_percentage).clamp(0.0, 1.0);
 
             let fill_radius = PLAYER_HP_BAR_RADIUS - 4.0;
+            let diameter = fill_radius * 2.0;
             let base_y = BOUNDARY_TOP;
 
-            // Scale mask height to cover the missing portion
-            let y_scale = missing;
-            let scaled_half_height = fill_radius * y_scale;
+            // Convert missing health into a circular segment height so that the
+            // visible area of the orb matches the remaining HP percentage.
+            let mask_height = segment_height_for_fraction(missing_fraction, fill_radius);
+            let y_scale = if diameter > 0.0 {
+                (mask_height / diameter).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let scaled_half_height = mask_height * 0.5;
 
             // Position the mask so its top edge aligns with the top of the circle,
             // and it grows downward as HP is lost.
@@ -430,7 +460,7 @@ pub fn update_health_bars(
             transform.translation.y = mask_center_y;
         }
     }
-    
+
     // Update rectangular HP bars (boss) - existing UI-based system
     for (health_bar, mut node) in rectangular_health_bar_query.iter_mut() {
         if let Ok(hp) = hp_query.get(health_bar.entity) {
@@ -442,10 +472,7 @@ pub fn update_health_bars(
 
 /// System to handle health regeneration (currently disabled - player doesn't regenerate)
 /// This can be enabled later if you want health regeneration mechanics
-pub fn change_health(
-    _time: Res<Time>,
-    _player_query: Query<&mut Hp, With<Player>>,
-) {
+pub fn change_health(_time: Res<Time>, _player_query: Query<&mut Hp, With<Player>>) {
     // Health regeneration disabled - player HP stays at current value
     // Uncomment below to enable regeneration:
     // let mut player_hp = player_query.single_mut().unwrap();
@@ -453,19 +480,76 @@ pub fn change_health(
 }
 
 /// Helper function to check AABB (Axis-Aligned Bounding Box) collision
-pub fn check_aabb_collision(
-    pos1: Vec3,
-    size1: Vec2,
-    pos2: Vec3,
-    size2: Vec2,
-) -> bool {
+pub fn check_aabb_collision(pos1: Vec3, size1: Vec2, pos2: Vec3, size2: Vec2) -> bool {
     let half_size1 = size1 * 0.5;
     let half_size2 = size2 * 0.5;
-    
+
     pos1.x - half_size1.x < pos2.x + half_size2.x
         && pos1.x + half_size1.x > pos2.x - half_size2.x
         && pos1.y - half_size1.y < pos2.y + half_size2.y
         && pos1.y + half_size1.y > pos2.y - half_size2.y
+}
+
+/// Compute the area of a circular segment (cap) with a given height.
+fn circular_segment_area(height: f32, radius: f32) -> f32 {
+    if radius <= 0.0 {
+        return 0.0;
+    }
+
+    let clamped_height = height.clamp(0.0, 2.0 * radius);
+    if clamped_height <= f32::EPSILON {
+        return 0.0;
+    }
+
+    if (clamped_height - 2.0 * radius).abs() <= f32::EPSILON {
+        return std::f32::consts::PI * radius * radius;
+    }
+
+    let r = radius;
+    let h = clamped_height;
+    let term = ((r - h) / r).clamp(-1.0, 1.0);
+    let theta = term.acos();
+    let sqrt_term = (2.0 * r * h - h * h).max(0.0).sqrt();
+
+    r * r * theta - (r - h) * sqrt_term
+}
+
+/// Convert a missing area fraction into a mask height so that the visible
+/// portion of the HP orb matches the remaining HP percentage.
+fn segment_height_for_fraction(fraction: f32, radius: f32) -> f32 {
+    if radius <= 0.0 {
+        return 0.0;
+    }
+
+    let frac = fraction.clamp(0.0, 1.0);
+    if frac <= f32::EPSILON {
+        return 0.0;
+    }
+
+    if frac >= 1.0 - f32::EPSILON {
+        return 2.0 * radius;
+    }
+
+    let target_area = frac * std::f32::consts::PI * radius * radius;
+    let mut low = 0.0;
+    let mut high = 2.0 * radius;
+
+    for _ in 0..20 {
+        let mid = 0.5 * (low + high);
+        let area = circular_segment_area(mid, radius);
+
+        if (area - target_area).abs() <= 1e-4 {
+            return mid;
+        }
+
+        if area < target_area {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+
+    0.5 * (low + high)
 }
 
 /// Calculate improved knockback direction based on collision angle
@@ -475,17 +559,20 @@ fn calculate_knockback_direction(
     _player_pos: Vec3,
     _boss_pos: Vec3,
 ) -> Vec2 {
-    use crate::systems::config::{KNOCKBACK_TOP_HORIZONTAL_COMPONENT, KNOCKBACK_TOP_VERTICAL_COMPONENT, KNOCKBACK_SIDE_VERTICAL_COMPONENT};
-    
+    use crate::systems::config::{
+        KNOCKBACK_SIDE_VERTICAL_COMPONENT, KNOCKBACK_TOP_HORIZONTAL_COMPONENT,
+        KNOCKBACK_TOP_VERTICAL_COMPONENT,
+    };
+
     if direction_to_player.length() < 0.001 {
         // If positions are exactly the same, push to the left
         return Vec2::new(-1.0, 0.0);
     }
-    
+
     let normalized = direction_to_player.normalize();
     let dx = direction_to_player.x.abs();
     let dy = direction_to_player.y.abs();
-    
+
     // Determine which side of the boss the player is hitting
     // If vertical distance is greater, it's a top/bottom collision
     // If horizontal distance is greater, it's a left/right collision
@@ -498,7 +585,8 @@ fn calculate_knockback_direction(
             Vec2::new(
                 horizontal_dir * KNOCKBACK_TOP_HORIZONTAL_COMPONENT,
                 KNOCKBACK_TOP_VERTICAL_COMPONENT,
-            ).normalize()
+            )
+            .normalize()
         } else {
             // Player is below boss (hitting from bottom)
             // Push downward and to the side
@@ -506,23 +594,24 @@ fn calculate_knockback_direction(
             Vec2::new(
                 horizontal_dir * KNOCKBACK_TOP_HORIZONTAL_COMPONENT,
                 -KNOCKBACK_TOP_VERTICAL_COMPONENT,
-            ).normalize()
+            )
+            .normalize()
         }
     } else {
         // Left or right collision (side collision)
         // Push horizontally away with slight upward component for more dynamic feel
         let horizontal_dir = if normalized.x > 0.0 { 1.0 } else { -1.0 };
-        Vec2::new(
-            horizontal_dir,
-            KNOCKBACK_SIDE_VERTICAL_COMPONENT,
-        ).normalize()
+        Vec2::new(horizontal_dir, KNOCKBACK_SIDE_VERTICAL_COMPONENT).normalize()
     }
 }
 
 /// System to handle player-boss collision (player takes damage)
 pub fn player_boss_collision(
     time: Res<Time>,
-    mut player_query: Query<(Entity, &Transform, &mut Hp, Option<&mut Invincibility>), With<Player>>,
+    mut player_query: Query<
+        (Entity, &Transform, &mut Hp, Option<&mut Invincibility>),
+        With<Player>,
+    >,
     boss_query: Query<&Transform, With<Boss>>,
     mut commands: Commands,
     player_upgrades: Option<Res<PlayerUpgrades>>,
@@ -530,9 +619,12 @@ pub fn player_boss_collision(
     const PLAYER_SIZE: Vec2 = Vec2::new(32.0, 64.0);
     const BOSS_SIZE: Vec2 = Vec2::new(32.0, 64.0);
     const BASE_DAMAGE: f32 = 10.0;
-    
+
     // Apply defense multiplier to damage
-    let defense_multiplier = player_upgrades.as_ref().map(|u| u.defense_multiplier).unwrap_or(1.0);
+    let defense_multiplier = player_upgrades
+        .as_ref()
+        .map(|u| u.defense_multiplier)
+        .unwrap_or(1.0);
     let DAMAGE = BASE_DAMAGE * defense_multiplier;
 
     for (player_entity, player_transform, mut player_hp, invincibility) in &mut player_query {
@@ -562,27 +654,28 @@ pub fn player_boss_collision(
                 BOSS_SIZE,
             ) {
                 // Calculate knockback direction based on collision side
-                let direction_to_player = (player_transform.translation - boss_transform.translation).truncate();
+                let direction_to_player =
+                    (player_transform.translation - boss_transform.translation).truncate();
                 let knockback_direction = calculate_knockback_direction(
                     direction_to_player,
                     player_transform.translation,
                     boss_transform.translation,
                 );
-                
+
                 // Player takes damage
                 player_hp.current = (player_hp.current - DAMAGE).max(0.0);
-                
+
                 // Add invincibility frames
                 commands.entity(player_entity).insert(Invincibility {
                     timer: INVINCIBILITY_DURATION,
                 });
-                
+
                 // Add knockback effect
                 commands.entity(player_entity).insert(Knockback {
                     velocity: knockback_direction * KNOCKBACK_FORCE,
                     timer: KNOCKBACK_DURATION,
                 });
-                
+
                 // Only process one collision per frame
                 break;
             }
@@ -600,15 +693,15 @@ pub fn apply_knockback(
         // Apply knockback velocity
         transform.translation.x += knockback.velocity.x * time.delta_secs();
         transform.translation.y += knockback.velocity.y * time.delta_secs();
-        
+
         // Keep player within boundaries even during knockback
         transform.translation.x = transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
         transform.translation.y = transform.translation.y.clamp(BOUNDARY_BOTTOM, BOUNDARY_TOP);
-        
+
         // Decay knockback over time
         knockback.velocity *= KNOCKBACK_DECAY_RATE; // Reduce velocity each frame
         knockback.timer -= time.delta_secs();
-        
+
         // Remove knockback when timer expires
         if knockback.timer <= 0.0 {
             commands.entity(entity).remove::<Knockback>();
@@ -619,7 +712,15 @@ pub fn apply_knockback(
 /// System to handle projectile-boss collision (boss takes damage, projectile despawns)
 pub fn projectile_boss_collision(
     mut commands: Commands,
-    projectile_query: Query<(Entity, &Transform), (With<Projectile>, Without<Boss>, Without<ProjectileHasHit>, Without<crate::systems::boss::BossProjectile>)>,
+    projectile_query: Query<
+        (Entity, &Transform),
+        (
+            With<Projectile>,
+            Without<Boss>,
+            Without<ProjectileHasHit>,
+            Without<crate::systems::boss::BossProjectile>,
+        ),
+    >,
     mut boss_query: Query<(&Transform, &mut Hp), With<Boss>>,
 ) {
     const PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
@@ -636,13 +737,13 @@ pub fn projectile_boss_collision(
             ) {
                 // Boss takes damage
                 boss_hp.current = (boss_hp.current - DAMAGE).max(0.0);
-                
+
                 // Mark projectile as hit (prevents multiple hits before despawn)
                 commands.entity(projectile_entity).insert(ProjectileHasHit);
-                
+
                 // Despawn projectile
                 commands.entity(projectile_entity).despawn();
-                
+
                 // Only process one collision per projectile
                 break;
             }
@@ -671,7 +772,7 @@ pub fn check_game_outcome(
         if boss_hp.current <= 0.0 {
             // Store which boss was defeated
             defeated_boss.boss_type = Some(*boss_type);
-            
+
             // Always transition to GameWin screen
             // The handle_stage_progression system will check if we should continue to next stage
             next_state.set(GameState::GameWin);

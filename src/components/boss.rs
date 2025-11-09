@@ -147,7 +147,7 @@ impl Default for BossAttackState {
 /// Component to track boss movement state
 #[derive(Component)]
 pub struct BossMovementState {
-    pub direction: f32, // -1.0 for left/up, 1.0 for right/down
+    pub direction: f32,     // -1.0 for left/up, 1.0 for right/down
     pub current_angle: f32, // For circular movement
 }
 
@@ -196,4 +196,3 @@ impl BossRegistry {
         self.bosses.iter().find(|boss| boss.boss_type == boss_type)
     }
 }
-

@@ -5,8 +5,8 @@ mod plugins;
 mod stages;
 mod systems;
 
-use stages::game_menu::{GameMenuPlugin, GameState, SelectedCharacter};
 use plugins::player_plugin::PlayerPlugin;
+use stages::game_menu::{GameMenuPlugin, GameState, SelectedCharacter};
 
 fn main() {
     App::new()

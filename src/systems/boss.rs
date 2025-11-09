@@ -1,8 +1,13 @@
-use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
 use crate::components::boss::*;
 use crate::components::player::*;
-use crate::systems::config::{KNOCKBACK_FORCE, KNOCKBACK_DURATION, BOSS_HP_BAR_WIDTH, BOSS_HP_BAR_HEIGHT, BOSS_HP_BAR_MARGIN_TOP, BOSS_HP_BAR_MARGIN_BOTTOM, BOSS_HP_BAR_MARGIN_LEFT, BOSS_HP_BAR_MARGIN_RIGHT, BOSS_HP_BAR_USE_CENTER, BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, BOUNDARY_BOTTOM};
+use crate::systems::config::{
+    BOSS_HP_BAR_HEIGHT, BOSS_HP_BAR_MARGIN_BOTTOM, BOSS_HP_BAR_MARGIN_LEFT,
+    BOSS_HP_BAR_MARGIN_RIGHT, BOSS_HP_BAR_MARGIN_TOP, BOSS_HP_BAR_USE_CENTER, BOSS_HP_BAR_WIDTH,
+    BOUNDARY_BOTTOM, BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, KNOCKBACK_DURATION,
+    KNOCKBACK_FORCE,
+};
+use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// JSON structure for boss attack patterns
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,11 +46,11 @@ pub enum AttackPatternConfig {
 /// Individual attack action in a sequence
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttackAction {
-    pub action_type: String, // "shoot", "wait", "burst", etc.
+    pub action_type: String,           // "shoot", "wait", "burst", etc.
     pub direction: Option<Vec2Config>, // Direction to shoot
-    pub count: Option<u32>, // Number of shots
-    pub delay: Option<f32>, // Delay before next action
-    pub spread: Option<f32>, // Spread angle for multi-shot
+    pub count: Option<u32>,            // Number of shots
+    pub delay: Option<f32>,            // Delay before next action
+    pub spread: Option<f32>,           // Spread angle for multi-shot
 }
 
 /// Vec2 configuration for JSON
@@ -104,7 +109,11 @@ impl BossPatternRegistry {
     }
 
     /// Load a pattern from a JSON file path
-    pub fn load_from_file(&mut self, name: String, file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn load_from_file(
+        &mut self,
+        name: String,
+        file_path: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let json = std::fs::read_to_string(file_path)?;
         self.load_from_json(name, &json)?;
         Ok(())
@@ -120,27 +129,33 @@ impl BossPatternRegistry {
 pub fn convert_attack_pattern(config: &AttackPatternConfig) -> AttackPattern {
     match config {
         AttackPatternConfig::None => AttackPattern::None,
-        AttackPatternConfig::SingleShot { cooldown, projectile_speed } => {
-            AttackPattern::SingleShot {
-                cooldown: *cooldown,
-                projectile_speed: *projectile_speed,
-            }
-        }
-        AttackPatternConfig::TripleShot { cooldown, projectile_speed, spread_angle } => {
-            AttackPattern::TripleShot {
-                cooldown: *cooldown,
-                projectile_speed: *projectile_speed,
-                spread_angle: *spread_angle,
-            }
-        }
-        AttackPatternConfig::RapidFire { cooldown, projectile_speed, burst_count, burst_delay } => {
-            AttackPattern::RapidFire {
-                cooldown: *cooldown,
-                projectile_speed: *projectile_speed,
-                burst_count: *burst_count,
-                burst_delay: *burst_delay,
-            }
-        }
+        AttackPatternConfig::SingleShot {
+            cooldown,
+            projectile_speed,
+        } => AttackPattern::SingleShot {
+            cooldown: *cooldown,
+            projectile_speed: *projectile_speed,
+        },
+        AttackPatternConfig::TripleShot {
+            cooldown,
+            projectile_speed,
+            spread_angle,
+        } => AttackPattern::TripleShot {
+            cooldown: *cooldown,
+            projectile_speed: *projectile_speed,
+            spread_angle: *spread_angle,
+        },
+        AttackPatternConfig::RapidFire {
+            cooldown,
+            projectile_speed,
+            burst_count,
+            burst_delay,
+        } => AttackPattern::RapidFire {
+            cooldown: *cooldown,
+            projectile_speed: *projectile_speed,
+            burst_count: *burst_count,
+            burst_delay: *burst_delay,
+        },
         AttackPatternConfig::Sequence { .. } => {
             // For now, treat sequence as None - can be extended later
             AttackPattern::None
@@ -152,27 +167,33 @@ pub fn convert_attack_pattern(config: &AttackPatternConfig) -> AttackPattern {
 pub fn convert_movement_pattern(config: &MovementPatternConfig) -> MovementPattern {
     match config {
         MovementPatternConfig::Stationary => MovementPattern::Stationary,
-        MovementPatternConfig::HorizontalPatrol { left_bound, right_bound, speed } => {
-            MovementPattern::HorizontalPatrol {
-                left_bound: *left_bound,
-                right_bound: *right_bound,
-                speed: *speed,
-            }
-        }
-        MovementPatternConfig::VerticalPatrol { top_bound, bottom_bound, speed } => {
-            MovementPattern::VerticalPatrol {
-                top_bound: *top_bound,
-                bottom_bound: *bottom_bound,
-                speed: *speed,
-            }
-        }
-        MovementPatternConfig::Circular { center, radius, speed } => {
-            MovementPattern::Circular {
-                center: center.clone().into(),
-                radius: *radius,
-                speed: *speed,
-            }
-        }
+        MovementPatternConfig::HorizontalPatrol {
+            left_bound,
+            right_bound,
+            speed,
+        } => MovementPattern::HorizontalPatrol {
+            left_bound: *left_bound,
+            right_bound: *right_bound,
+            speed: *speed,
+        },
+        MovementPatternConfig::VerticalPatrol {
+            top_bound,
+            bottom_bound,
+            speed,
+        } => MovementPattern::VerticalPatrol {
+            top_bound: *top_bound,
+            bottom_bound: *bottom_bound,
+            speed: *speed,
+        },
+        MovementPatternConfig::Circular {
+            center,
+            radius,
+            speed,
+        } => MovementPattern::Circular {
+            center: center.clone().into(),
+            radius: *radius,
+            speed: *speed,
+        },
         MovementPatternConfig::Waypoint { .. } => {
             // For now, treat waypoint as Stationary - can be extended later
             MovementPattern::Stationary
@@ -188,11 +209,14 @@ pub fn load_stage_boss_pattern(
     let stage_num = current_stage.0;
     let pattern_name = format!("stage_{}", stage_num);
     let file_path = format!("boss_patterns/stage_{}_boss.json", stage_num);
-    
+
     // Only load if not already loaded
     if pattern_registry.get_pattern(&pattern_name).is_none() {
         if let Err(e) = pattern_registry.load_from_file(pattern_name.clone(), &file_path) {
-            eprintln!("Warning: Failed to load boss pattern from {}: {}", file_path, e);
+            eprintln!(
+                "Warning: Failed to load boss pattern from {}: {}",
+                file_path, e
+            );
             eprintln!("Using default boss pattern instead");
         }
     }
@@ -208,14 +232,20 @@ pub fn boss_movement(
             MovementPattern::Stationary => {
                 // Boss doesn't move
             }
-            MovementPattern::HorizontalPatrol { left_bound, right_bound, speed } => {
+            MovementPattern::HorizontalPatrol {
+                left_bound,
+                right_bound,
+                speed,
+            } => {
                 // Move horizontally between bounds
                 transform.translation.x += movement_state.direction * speed * time.delta_secs();
-                
+
                 // Clamp to game boundaries first
-                transform.translation.x = transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
-                transform.translation.y = transform.translation.y.clamp(BOUNDARY_BOTTOM, BOUNDARY_TOP);
-                
+                transform.translation.x =
+                    transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
+                transform.translation.y =
+                    transform.translation.y.clamp(BOUNDARY_BOTTOM, BOUNDARY_TOP);
+
                 // Reverse direction at bounds
                 let effective_left = left_bound.max(BOUNDARY_LEFT);
                 let effective_right = right_bound.min(BOUNDARY_RIGHT);
@@ -227,14 +257,20 @@ pub fn boss_movement(
                     movement_state.direction = -1.0;
                 }
             }
-            MovementPattern::VerticalPatrol { top_bound, bottom_bound, speed } => {
+            MovementPattern::VerticalPatrol {
+                top_bound,
+                bottom_bound,
+                speed,
+            } => {
                 // Move vertically between bounds
                 transform.translation.y += movement_state.direction * speed * time.delta_secs();
-                
+
                 // Clamp to game boundaries first
-                transform.translation.x = transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
-                transform.translation.y = transform.translation.y.clamp(BOUNDARY_BOTTOM, BOUNDARY_TOP);
-                
+                transform.translation.x =
+                    transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
+                transform.translation.y =
+                    transform.translation.y.clamp(BOUNDARY_BOTTOM, BOUNDARY_TOP);
+
                 // Reverse direction at bounds
                 let effective_bottom = bottom_bound.max(BOUNDARY_BOTTOM);
                 let effective_top = top_bound.min(BOUNDARY_TOP);
@@ -246,15 +282,21 @@ pub fn boss_movement(
                     movement_state.direction = -1.0;
                 }
             }
-            MovementPattern::Circular { center, radius, speed } => {
+            MovementPattern::Circular {
+                center,
+                radius,
+                speed,
+            } => {
                 // Circular movement
                 movement_state.current_angle += speed * time.delta_secs();
                 transform.translation.x = center.x + radius * movement_state.current_angle.cos();
                 transform.translation.y = center.y + radius * movement_state.current_angle.sin();
-                
+
                 // Clamp to game boundaries
-                transform.translation.x = transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
-                transform.translation.y = transform.translation.y.clamp(BOUNDARY_BOTTOM, BOUNDARY_TOP);
+                transform.translation.x =
+                    transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
+                transform.translation.y =
+                    transform.translation.y.clamp(BOUNDARY_BOTTOM, BOUNDARY_TOP);
             }
             MovementPattern::Custom => {
                 // Custom movement - can be extended
@@ -279,14 +321,17 @@ pub fn boss_attacks(
             AttackPattern::None => {
                 // Boss doesn't attack
             }
-            AttackPattern::SingleShot { cooldown, projectile_speed } => {
+            AttackPattern::SingleShot {
+                cooldown,
+                projectile_speed,
+            } => {
                 if attack_state.timer <= 0.0 {
                     // Get player position for aiming
                     if let Ok(player_transform) = player_query.single() {
                         let direction = (player_transform.translation - boss_transform.translation)
                             .truncate()
                             .normalize_or_zero();
-                        
+
                         spawn_boss_projectile(
                             &mut commands,
                             &mut meshes,
@@ -294,27 +339,34 @@ pub fn boss_attacks(
                             boss_transform.translation,
                             direction * *projectile_speed,
                         );
-                        
+
                         attack_state.timer = *cooldown;
                     }
                 }
             }
-            AttackPattern::TripleShot { cooldown, projectile_speed, spread_angle } => {
+            AttackPattern::TripleShot {
+                cooldown,
+                projectile_speed,
+                spread_angle,
+            } => {
                 if attack_state.timer <= 0.0 {
                     if let Ok(player_transform) = player_query.single() {
-                        let base_direction = (player_transform.translation - boss_transform.translation)
+                        let base_direction = (player_transform.translation
+                            - boss_transform.translation)
                             .truncate()
                             .normalize_or_zero();
-                        
+
                         // Shoot three projectiles with spread
                         let angles = [-*spread_angle, 0.0, *spread_angle];
                         for angle in angles {
                             let rotation = angle.to_radians();
                             let direction = Vec2::new(
-                                base_direction.x * rotation.cos() - base_direction.y * rotation.sin(),
-                                base_direction.x * rotation.sin() + base_direction.y * rotation.cos(),
+                                base_direction.x * rotation.cos()
+                                    - base_direction.y * rotation.sin(),
+                                base_direction.x * rotation.sin()
+                                    + base_direction.y * rotation.cos(),
                             );
-                            
+
                             spawn_boss_projectile(
                                 &mut commands,
                                 &mut meshes,
@@ -323,21 +375,27 @@ pub fn boss_attacks(
                                 direction * *projectile_speed,
                             );
                         }
-                        
+
                         attack_state.timer = *cooldown;
                     }
                 }
             }
-            AttackPattern::RapidFire { cooldown, projectile_speed, burst_count, burst_delay } => {
+            AttackPattern::RapidFire {
+                cooldown,
+                projectile_speed,
+                burst_count,
+                burst_delay,
+            } => {
                 if attack_state.burst_count > 0 {
                     // In burst mode
                     attack_state.burst_timer -= time.delta_secs();
                     if attack_state.burst_timer <= 0.0 {
                         if let Ok(player_transform) = player_query.single() {
-                            let direction = (player_transform.translation - boss_transform.translation)
+                            let direction = (player_transform.translation
+                                - boss_transform.translation)
                                 .truncate()
                                 .normalize_or_zero();
-                            
+
                             spawn_boss_projectile(
                                 &mut commands,
                                 &mut meshes,
@@ -345,7 +403,7 @@ pub fn boss_attacks(
                                 boss_transform.translation,
                                 direction * *projectile_speed,
                             );
-                            
+
                             attack_state.burst_count -= 1;
                             if attack_state.burst_count > 0 {
                                 attack_state.burst_timer = *burst_delay;
@@ -401,12 +459,17 @@ pub fn boss_projectile_movement(
     mut projectile_query: Query<(Entity, &mut Transform, &Projectile, &BossProjectile)>,
 ) {
     for (entity, mut transform, projectile, boss_projectile) in &mut projectile_query {
-        transform.translation.x += projectile.direction.x * boss_projectile.speed * time.delta_secs();
-        transform.translation.y += projectile.direction.y * boss_projectile.speed * time.delta_secs();
+        transform.translation.x +=
+            projectile.direction.x * boss_projectile.speed * time.delta_secs();
+        transform.translation.y +=
+            projectile.direction.y * boss_projectile.speed * time.delta_secs();
 
         // Despawn projectile after it goes outside boundaries
-        if transform.translation.x < BOUNDARY_LEFT || transform.translation.x > BOUNDARY_RIGHT
-            || transform.translation.y < BOUNDARY_BOTTOM || transform.translation.y > BOUNDARY_TOP {
+        if transform.translation.x < BOUNDARY_LEFT
+            || transform.translation.x > BOUNDARY_RIGHT
+            || transform.translation.y < BOUNDARY_BOTTOM
+            || transform.translation.y > BOUNDARY_TOP
+        {
             commands.entity(entity).despawn();
         }
     }
@@ -415,20 +478,29 @@ pub fn boss_projectile_movement(
 /// System to handle boss projectile collision with player
 pub fn boss_projectile_player_collision(
     mut commands: Commands,
-    projectile_query: Query<(Entity, &Transform, &Projectile), (With<BossProjectile>, Without<Player>)>,
-    mut player_query: Query<(Entity, &Transform, &mut Hp, Option<&mut Invincibility>), With<Player>>,
+    projectile_query: Query<
+        (Entity, &Transform, &Projectile),
+        (With<BossProjectile>, Without<Player>),
+    >,
+    mut player_query: Query<
+        (Entity, &Transform, &mut Hp, Option<&mut Invincibility>),
+        With<Player>,
+    >,
     time: Res<Time>,
     player_upgrades: Option<Res<crate::stages::game_menu::PlayerUpgrades>>,
 ) {
     use crate::systems::config::INVINCIBILITY_DURATION;
     use crate::systems::player::check_aabb_collision;
-    
+
     const PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
     const PLAYER_SIZE: Vec2 = Vec2::new(32.0, 64.0);
     const BASE_DAMAGE: f32 = 15.0;
-    
+
     // Apply defense multiplier to damage
-    let defense_multiplier = player_upgrades.as_ref().map(|u| u.defense_multiplier).unwrap_or(1.0);
+    let defense_multiplier = player_upgrades
+        .as_ref()
+        .map(|u| u.defense_multiplier)
+        .unwrap_or(1.0);
     let DAMAGE = BASE_DAMAGE * defense_multiplier;
 
     for (projectile_entity, projectile_transform, projectile) in &projectile_query {
@@ -461,24 +533,24 @@ pub fn boss_projectile_player_collision(
                 // The projectile direction points from boss toward player, so we use the same direction
                 // to push the player further away from the boss
                 let knockback_direction = projectile.direction.normalize_or_zero();
-                
+
                 // Player takes damage
                 player_hp.current = (player_hp.current - DAMAGE).max(0.0);
-                
+
                 // Add invincibility frames
                 commands.entity(player_entity).insert(Invincibility {
                     timer: INVINCIBILITY_DURATION,
                 });
-                
+
                 // Add knockback effect
                 commands.entity(player_entity).insert(Knockback {
                     velocity: knockback_direction * KNOCKBACK_FORCE,
                     timer: KNOCKBACK_DURATION,
                 });
-                
+
                 // Despawn projectile
                 commands.entity(projectile_entity).despawn();
-                
+
                 // Only process one collision per projectile
                 break;
             }
@@ -515,38 +587,34 @@ pub fn setup_boss_hp_bar(mut commands: Commands, boss_query: Query<Entity, With<
         }
     };
 
-    commands
-        .spawn(root_node)
-        .with_children(|parent| {
-            // HP bar container with configurable positioning
-            let hp_bar_node = if BOSS_HP_BAR_USE_CENTER {
-                // Centered - no margins needed
-                Node {
-                    width: px(BOSS_HP_BAR_WIDTH),
-                    height: px(BOSS_HP_BAR_HEIGHT),
-                    border: UiRect::all(px(2.0)),
-                    ..default()
-                }
-            } else {
-                // Margin-based positioning
-                Node {
-                    width: px(BOSS_HP_BAR_WIDTH),
-                    height: px(BOSS_HP_BAR_HEIGHT),
-                    margin: UiRect {
-                        left: px(BOSS_HP_BAR_MARGIN_LEFT),
-                        top: px(BOSS_HP_BAR_MARGIN_TOP),
-                        right: px(BOSS_HP_BAR_MARGIN_RIGHT),
-                        bottom: px(BOSS_HP_BAR_MARGIN_BOTTOM),
-                    },
-                    border: UiRect::all(px(2.0)),
-                    ..default()
-                }
-            };
+    commands.spawn(root_node).with_children(|parent| {
+        // HP bar container with configurable positioning
+        let hp_bar_node = if BOSS_HP_BAR_USE_CENTER {
+            // Centered - no margins needed
+            Node {
+                width: px(BOSS_HP_BAR_WIDTH),
+                height: px(BOSS_HP_BAR_HEIGHT),
+                border: UiRect::all(px(2.0)),
+                ..default()
+            }
+        } else {
+            // Margin-based positioning
+            Node {
+                width: px(BOSS_HP_BAR_WIDTH),
+                height: px(BOSS_HP_BAR_HEIGHT),
+                margin: UiRect {
+                    left: px(BOSS_HP_BAR_MARGIN_LEFT),
+                    top: px(BOSS_HP_BAR_MARGIN_TOP),
+                    right: px(BOSS_HP_BAR_MARGIN_RIGHT),
+                    bottom: px(BOSS_HP_BAR_MARGIN_BOTTOM),
+                },
+                border: UiRect::all(px(2.0)),
+                ..default()
+            }
+        };
 
-            parent.spawn((
-                hp_bar_node,
-                BackgroundColor(Color::BLACK.into()),
-            ))
+        parent
+            .spawn((hp_bar_node, BackgroundColor(Color::BLACK.into())))
             .with_children(|hp_parent| {
                 // HP bar fill
                 hp_parent.spawn((
@@ -559,6 +627,5 @@ pub fn setup_boss_hp_bar(mut commands: Commands, boss_query: Query<Entity, With<
                     HealthBar { entity: boss },
                 ));
             });
-        });
+    });
 }
-
