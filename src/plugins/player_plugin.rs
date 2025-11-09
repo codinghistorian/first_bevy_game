@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use crate::stages::game_menu::{GameState, despawn_screen, CurrentStage, PlayerUpgrades};
 use crate::systems::player::{player_movement, spawn_player_and_level, player_shooting, projectile_movement, setup_player_hp_bar, update_health_bars, change_health, spawn_boss, player_boss_collision, projectile_boss_collision, apply_knockback, check_game_outcome};
 use crate::systems::boss::{boss_movement, boss_attacks, boss_projectile_movement, boss_projectile_player_collision, BossPatternRegistry, BossProjectile, load_stage_boss_pattern, setup_boss_hp_bar};
+use crate::systems::boundaries::spawn_boundaries;
 use crate::components::player::{Player, Floor, Projectile, HealthBar, BoundaryWall};
 use crate::components::boss::{Boss, BossRegistry};
 
@@ -23,9 +24,10 @@ impl Plugin for PlayerPlugin {
                 },
                 // Load boss pattern for current stage
                 load_stage_boss_pattern,
-                // Spawn player and boss
+                // Spawn player, boss, and boundaries
                 spawn_player_and_level,
                 spawn_boss,
+                spawn_boundaries,
             ).chain())
             .add_systems(OnEnter(GameState::InGame), (setup_player_hp_bar, setup_boss_hp_bar).after(spawn_player_and_level).after(spawn_boss))
             .add_systems(

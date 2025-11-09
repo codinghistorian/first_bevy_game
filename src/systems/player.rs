@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::components::player::*;
 use crate::components::boss::*;
 use crate::stages::game_menu::{SelectedCharacter, GameState, DefeatedBoss};
-use crate::systems::config::{SMALL_JUMP_CHARGE_RATIO, KNOCKBACK_FORCE, KNOCKBACK_DURATION, KNOCKBACK_DECAY_RATE, KNOCKBACK_MOVEMENT_REDUCTION, INVINCIBILITY_DURATION, MAX_STAGES, BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, BOUNDARY_BOTTOM, BOUNDARY_WALL_THICKNESS};
+use crate::systems::config::{SMALL_JUMP_CHARGE_RATIO, KNOCKBACK_FORCE, KNOCKBACK_DURATION, KNOCKBACK_DECAY_RATE, KNOCKBACK_MOVEMENT_REDUCTION, INVINCIBILITY_DURATION, MAX_STAGES, BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, BOUNDARY_BOTTOM};
 use crate::stages::game_menu::PlayerUpgrades;
 
 /// Spawns the ingame 2D game scene when entering the InGame state
@@ -56,31 +56,6 @@ pub fn spawn_player_and_level(
         MeshMaterial2d(materials.add(Color::srgb(0.3, 0.3, 0.3))), // Gray floor
         Transform::from_xyz(0.0, -250.0, 0.0), // Position at bottom
         Floor,
-    ));
-
-    // Spawn boundary walls
-    // Left wall (red)
-    commands.spawn((
-        Mesh2d(meshes.add(Rectangle::new(BOUNDARY_WALL_THICKNESS, BOUNDARY_TOP - BOUNDARY_BOTTOM))),
-        MeshMaterial2d(materials.add(Color::srgb(1.0, 0.0, 0.0))), // Red
-        Transform::from_xyz(BOUNDARY_LEFT, (BOUNDARY_TOP + BOUNDARY_BOTTOM) / 2.0, 0.0),
-        BoundaryWall,
-    ));
-
-    // Right wall (red)
-    commands.spawn((
-        Mesh2d(meshes.add(Rectangle::new(BOUNDARY_WALL_THICKNESS, BOUNDARY_TOP - BOUNDARY_BOTTOM))),
-        MeshMaterial2d(materials.add(Color::srgb(1.0, 0.0, 0.0))), // Red
-        Transform::from_xyz(BOUNDARY_RIGHT, (BOUNDARY_TOP + BOUNDARY_BOTTOM) / 2.0, 0.0),
-        BoundaryWall,
-    ));
-
-    // Top boundary line (green)
-    commands.spawn((
-        Mesh2d(meshes.add(Rectangle::new(BOUNDARY_RIGHT - BOUNDARY_LEFT, BOUNDARY_WALL_THICKNESS))),
-        MeshMaterial2d(materials.add(Color::srgb(0.0, 1.0, 0.0))), // Green
-        Transform::from_xyz((BOUNDARY_LEFT + BOUNDARY_RIGHT) / 2.0, BOUNDARY_TOP, 0.0),
-        BoundaryWall,
     ));
 }
 
