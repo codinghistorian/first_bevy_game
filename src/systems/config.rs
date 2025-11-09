@@ -37,3 +37,10 @@ pub const BOSS_HP_BAR_MARGIN_BOTTOM: f32 = 0.0; // Bottom margin in pixels (0.0 
 pub const BOSS_HP_BAR_MARGIN_LEFT: f32 = 0.0; // Left margin in pixels (0.0 = use center alignment)
 pub const BOSS_HP_BAR_MARGIN_RIGHT: f32 = 0.0; // Right margin in pixels (0.0 = use center alignment)
 pub const BOSS_HP_BAR_USE_CENTER: bool = false; // If true, centers the HP bar; if false, uses margins for positioning
+
+// Game boundaries (where entities can move)
+pub const BOUNDARY_LEFT: f32 = -350.0; // Left boundary X position
+pub const BOUNDARY_RIGHT: f32 = 350.0; // Right boundary X position
+pub const BOUNDARY_TOP: f32 = 200.0; // Top boundary Y position
+pub const BOUNDARY_BOTTOM: f32 = -198.0; // Bottom boundary Y position (player ground level)
+pub const BOUNDARY_WALL_THICKNESS: f32 = 4.0; // Thickness of boundary wall lines

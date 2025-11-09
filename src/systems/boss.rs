@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use crate::components::boss::*;
 use crate::components::player::*;
-use crate::systems::config::{KNOCKBACK_FORCE, KNOCKBACK_DURATION, BOSS_HP_BAR_WIDTH, BOSS_HP_BAR_HEIGHT, BOSS_HP_BAR_MARGIN_TOP, BOSS_HP_BAR_MARGIN_BOTTOM, BOSS_HP_BAR_MARGIN_LEFT, BOSS_HP_BAR_MARGIN_RIGHT, BOSS_HP_BAR_USE_CENTER};
+use crate::systems::config::{KNOCKBACK_FORCE, KNOCKBACK_DURATION, BOSS_HP_BAR_WIDTH, BOSS_HP_BAR_HEIGHT, BOSS_HP_BAR_MARGIN_TOP, BOSS_HP_BAR_MARGIN_BOTTOM, BOSS_HP_BAR_MARGIN_LEFT, BOSS_HP_BAR_MARGIN_RIGHT, BOSS_HP_BAR_USE_CENTER, BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, BOUNDARY_BOTTOM};
 
 /// JSON structure for boss attack patterns
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -212,12 +212,18 @@ pub fn boss_movement(
                 // Move horizontally between bounds
                 transform.translation.x += movement_state.direction * speed * time.delta_secs();
                 
+                // Clamp to game boundaries first
+                transform.translation.x = transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
+                transform.translation.y = transform.translation.y.clamp(BOUNDARY_BOTTOM, BOUNDARY_TOP);
+                
                 // Reverse direction at bounds
-                if transform.translation.x <= *left_bound {
-                    transform.translation.x = *left_bound;
+                let effective_left = left_bound.max(BOUNDARY_LEFT);
+                let effective_right = right_bound.min(BOUNDARY_RIGHT);
+                if transform.translation.x <= effective_left {
+                    transform.translation.x = effective_left;
                     movement_state.direction = 1.0;
-                } else if transform.translation.x >= *right_bound {
-                    transform.translation.x = *right_bound;
+                } else if transform.translation.x >= effective_right {
+                    transform.translation.x = effective_right;
                     movement_state.direction = -1.0;
                 }
             }
@@ -225,12 +231,18 @@ pub fn boss_movement(
                 // Move vertically between bounds
                 transform.translation.y += movement_state.direction * speed * time.delta_secs();
                 
+                // Clamp to game boundaries first
+                transform.translation.x = transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
+                transform.translation.y = transform.translation.y.clamp(BOUNDARY_BOTTOM, BOUNDARY_TOP);
+                
                 // Reverse direction at bounds
-                if transform.translation.y <= *bottom_bound {
-                    transform.translation.y = *bottom_bound;
+                let effective_bottom = bottom_bound.max(BOUNDARY_BOTTOM);
+                let effective_top = top_bound.min(BOUNDARY_TOP);
+                if transform.translation.y <= effective_bottom {
+                    transform.translation.y = effective_bottom;
                     movement_state.direction = 1.0;
-                } else if transform.translation.y >= *top_bound {
-                    transform.translation.y = *top_bound;
+                } else if transform.translation.y >= effective_top {
+                    transform.translation.y = effective_top;
                     movement_state.direction = -1.0;
                 }
             }
@@ -239,6 +251,10 @@ pub fn boss_movement(
                 movement_state.current_angle += speed * time.delta_secs();
                 transform.translation.x = center.x + radius * movement_state.current_angle.cos();
                 transform.translation.y = center.y + radius * movement_state.current_angle.sin();
+                
+                // Clamp to game boundaries
+                transform.translation.x = transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
+                transform.translation.y = transform.translation.y.clamp(BOUNDARY_BOTTOM, BOUNDARY_TOP);
             }
             MovementPattern::Custom => {
                 // Custom movement - can be extended
@@ -388,8 +404,9 @@ pub fn boss_projectile_movement(
         transform.translation.x += projectile.direction.x * boss_projectile.speed * time.delta_secs();
         transform.translation.y += projectile.direction.y * boss_projectile.speed * time.delta_secs();
 
-        // Despawn projectile after it goes off screen
-        if transform.translation.x.abs() > 400.0 || transform.translation.y.abs() > 300.0 {
+        // Despawn projectile after it goes outside boundaries
+        if transform.translation.x < BOUNDARY_LEFT || transform.translation.x > BOUNDARY_RIGHT
+            || transform.translation.y < BOUNDARY_BOTTOM || transform.translation.y > BOUNDARY_TOP {
             commands.entity(entity).despawn();
         }
     }

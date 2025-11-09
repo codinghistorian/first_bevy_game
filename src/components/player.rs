@@ -44,6 +44,10 @@ pub enum JumpType {
 #[derive(Component)]
 pub struct Floor;
 
+/// Marker component for boundary walls
+#[derive(Component)]
+pub struct BoundaryWall;
+
 /// Component to track dashing state
 #[derive(Component)]
 pub struct Dash {

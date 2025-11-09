@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use crate::stages::game_menu::{GameState, despawn_screen, CurrentStage, PlayerUpgrades};
 use crate::systems::player::{player_movement, spawn_player_and_level, player_shooting, projectile_movement, setup_player_hp_bar, update_health_bars, change_health, spawn_boss, player_boss_collision, projectile_boss_collision, apply_knockback, check_game_outcome};
 use crate::systems::boss::{boss_movement, boss_attacks, boss_projectile_movement, boss_projectile_player_collision, BossPatternRegistry, BossProjectile, load_stage_boss_pattern, setup_boss_hp_bar};
-use crate::components::player::{Player, Floor, Projectile, HealthBar};
+use crate::components::player::{Player, Floor, Projectile, HealthBar, BoundaryWall};
 use crate::components::boss::{Boss, BossRegistry};
 
 pub struct PlayerPlugin;
@@ -48,7 +48,7 @@ impl Plugin for PlayerPlugin {
             )
             .add_systems(
                 OnExit(GameState::InGame),
-                (despawn_screen::<Player>, despawn_screen::<Boss>, despawn_screen::<Floor>, despawn_screen::<Projectile>, despawn_screen::<HealthBar>, despawn_screen::<BossProjectile>),
+                (despawn_screen::<Player>, despawn_screen::<Boss>, despawn_screen::<Floor>, despawn_screen::<Projectile>, despawn_screen::<HealthBar>, despawn_screen::<BossProjectile>, despawn_screen::<BoundaryWall>),
             );
     }
 }
