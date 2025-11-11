@@ -4,7 +4,7 @@ use bevy::{
     prelude::*,
     sprite::Anchor,
 };
-use crate::systems::config::{BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, BOUNDARY_BOTTOM};
+use crate::systems::config::{BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, BOUNDARY_BOTTOM, BACKGROUND_PADDING};
 
 /// Game state to manage transitions between character selection and gameplay
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States, Component)]
@@ -346,9 +346,9 @@ pub fn spawn_in_game_screen(
             let load_state = asset_server.load_state(first_handle);
             info!("First background image load state: {:?}, handle id: {:?}", load_state, first_handle.id());
             
-            // Calculate background size to fit game boundaries
-            let bg_width = BOUNDARY_RIGHT - BOUNDARY_LEFT;
-            let bg_height = BOUNDARY_TOP - BOUNDARY_BOTTOM;
+            // Calculate background size to be slightly larger than game boundaries
+            let bg_width = (BOUNDARY_RIGHT - BOUNDARY_LEFT) + (BACKGROUND_PADDING * 2.0);
+            let bg_height = (BOUNDARY_TOP - BOUNDARY_BOTTOM) + (BACKGROUND_PADDING * 2.0);
             let bg_center_x = (BOUNDARY_LEFT + BOUNDARY_RIGHT) / 2.0;
             let bg_center_y = (BOUNDARY_BOTTOM + BOUNDARY_TOP) / 2.0;
             

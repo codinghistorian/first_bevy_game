@@ -44,6 +44,7 @@ pub const BOUNDARY_RIGHT: f32 = 350.0; // Right boundary X position
 pub const BOUNDARY_TOP: f32 = 200.0; // Top boundary Y position
 pub const BOUNDARY_BOTTOM: f32 = -198.0; // Bottom boundary Y position (player ground level)
 pub const BOUNDARY_WALL_THICKNESS: f32 = 4.0; // Thickness of boundary wall lines
+pub const BACKGROUND_PADDING: f32 = 50.0; // Padding around boundaries for background image (makes background slightly larger than boundaries)
 
 // Player HP Bar UI positioning
 pub const PLAYER_HP_BAR_RADIUS: f32 = 30.0; // Radius of the circular HP bar in pixels
