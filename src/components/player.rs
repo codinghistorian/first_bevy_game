@@ -71,6 +71,7 @@ pub struct Dash {
 #[derive(Component)]
 pub struct Projectile {
     pub direction: Vec2,
+    pub charge_level: f32, // 0.0 = uncharged, 1.0 = fully charged
 }
 
 /// Marker component to indicate a projectile has already hit something (prevents multiple hits)
@@ -81,6 +82,13 @@ pub struct ProjectileHasHit;
 #[derive(Component)]
 pub struct Shooting {
     pub timer: f32,
+}
+
+/// Component to track charge shot charging state
+#[derive(Component)]
+pub struct ChargeShot {
+    pub timer: f32,
+    pub is_charging: bool,
 }
 
 /// Component to track invincibility frames (prevents damage spam)

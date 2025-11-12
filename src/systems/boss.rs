@@ -439,6 +439,7 @@ fn spawn_boss_projectile(
         Transform::from_xyz(position.x, position.y, 0.0),
         Projectile {
             direction: velocity.normalize_or_zero(),
+            charge_level: 0.0, // Boss projectiles are always uncharged
         },
         BossProjectile {
             speed: velocity.length(),

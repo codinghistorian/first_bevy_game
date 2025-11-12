@@ -50,9 +50,16 @@ pub const BACKGROUND_PADDING: f32 = 50.0; // Padding around boundaries for backg
 pub const PLAYER_HP_BAR_RADIUS: f32 = 30.0; // Radius of the circular HP bar in pixels
 pub const PLAYER_HP_BAR_MARGIN_LEFT: f32 = 20.0; // Left margin from screen edge
 
+// Charge shot mechanics
+pub const CHARGE_SHOT_MAX_TIME: f32 = 1.0; // Maximum charge time in seconds
+pub const CHARGE_SHOT_MIN_TIME: f32 = 0.1; // Minimum charge time to fire a charged shot (prevents accidental charges)
+pub const CHARGE_SHOT_COOLDOWN: f32 = 0.3; // Cooldown after firing a charged shot
+pub const NORMAL_SHOT_COOLDOWN: f32 = 0.5; // Cooldown for normal (quick tap) shots
+
 // Damage values for collisions
 pub const BOSS_COLLISION_DAMAGE: f32 = 10.0; // Damage dealt by boss body collision with player
-pub const PLAYER_PROJECTILE_DAMAGE: f32 = 20.0; // Damage dealt by player projectiles to boss
+pub const PLAYER_PROJECTILE_DAMAGE: f32 = 20.0; // Base damage dealt by player projectiles to boss
+pub const CHARGE_SHOT_DAMAGE_MULTIPLIER: f32 = 3.0; // Fully charged shot deals 3x base damage
 pub const BOSS_PROJECTILE_DAMAGE: f32 = 15.0; // Damage dealt by boss projectiles to player
 
 // Upgrade values

@@ -3,9 +3,11 @@ use crate::components::player::*;
 use crate::stages::game_menu::PlayerUpgrades;
 use crate::stages::game_menu::{DefeatedBoss, GameState, SelectedCharacter};
 use crate::systems::config::{
-    BOUNDARY_BOTTOM, BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, INVINCIBILITY_DURATION,
-    KNOCKBACK_DECAY_RATE, KNOCKBACK_DURATION, KNOCKBACK_FORCE, KNOCKBACK_MOVEMENT_REDUCTION,
-    PLAYER_HP_BAR_MARGIN_LEFT, PLAYER_HP_BAR_RADIUS, SMALL_JUMP_CHARGE_RATIO,
+    BOUNDARY_BOTTOM, BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, CHARGE_SHOT_COOLDOWN,
+    CHARGE_SHOT_DAMAGE_MULTIPLIER, CHARGE_SHOT_MAX_TIME, CHARGE_SHOT_MIN_TIME,
+    INVINCIBILITY_DURATION, KNOCKBACK_DECAY_RATE, KNOCKBACK_DURATION, KNOCKBACK_FORCE,
+    KNOCKBACK_MOVEMENT_REDUCTION, NORMAL_SHOT_COOLDOWN, PLAYER_HP_BAR_MARGIN_LEFT,
+    PLAYER_HP_BAR_RADIUS, PLAYER_PROJECTILE_DAMAGE, SMALL_JUMP_CHARGE_RATIO,
 };
 use bevy::prelude::*;
 
@@ -59,6 +61,10 @@ pub fn spawn_player_and_level(
             is_charging: false,
         },
         Shooting { timer: 0.0 },
+        ChargeShot {
+            timer: 0.0,
+            is_charging: false,
+        },
     ));
 
     // Spawn the floor/platform at the bottom
@@ -283,16 +289,37 @@ pub fn player_shooting(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut player_query: Query<(&Transform, &PlayerVelocity, &mut Shooting), With<Player>>,
+    mut player_query: Query<
+        (&Transform, &PlayerVelocity, &mut Shooting, &mut ChargeShot),
+        With<Player>,
+    >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    const SHOOT_COOLDOWN: f32 = 0.5; // Seconds
-
-    for (player_transform, player_velocity, mut shooting) in &mut player_query {
+    for (player_transform, player_velocity, mut shooting, mut charge_shot) in &mut player_query {
         shooting.timer -= time.delta_secs();
 
-        if keyboard_input.pressed(KeyCode::KeyC) && shooting.timer <= 0.0 {
+        let shoot_button_pressed = keyboard_input.pressed(KeyCode::KeyC);
+        let shoot_button_just_pressed = keyboard_input.just_pressed(KeyCode::KeyC);
+        let shoot_button_just_released = keyboard_input.just_released(KeyCode::KeyC);
+
+        // Start charging when button is pressed
+        if shoot_button_just_pressed && shooting.timer <= 0.0 {
+            charge_shot.is_charging = true;
+            charge_shot.timer = 0.0;
+        }
+
+        // Charge while button is held
+        if charge_shot.is_charging && shoot_button_pressed {
+            charge_shot.timer += time.delta_secs();
+            charge_shot.timer = charge_shot.timer.min(CHARGE_SHOT_MAX_TIME);
+        }
+
+        // Fire when button is released
+        if shoot_button_just_released && charge_shot.is_charging {
+            let charge_level = (charge_shot.timer / CHARGE_SHOT_MAX_TIME).clamp(0.0, 1.0);
+            let is_charged_shot = charge_shot.timer >= CHARGE_SHOT_MIN_TIME;
+
             // Determine the cardinal shooting direction
             let shoot_direction;
 
@@ -310,7 +337,9 @@ pub fn player_shooting(
 
             // Prevent shooting downwards
             if shoot_direction.y < 0.0 {
-                return;
+                charge_shot.is_charging = false;
+                charge_shot.timer = 0.0;
+                continue;
             }
 
             let projectile_transform = Transform::from_xyz(
@@ -319,16 +348,41 @@ pub fn player_shooting(
                 0.0,
             );
 
+            // Determine projectile size and color based on charge level
+            let (size, color) = if is_charged_shot {
+                // Charged shot: larger and brighter (yellow/orange)
+                let size_multiplier = 1.0 + (charge_level * 1.5); // 1.0x to 2.5x size
+                let size = 10.0 * size_multiplier;
+                // Color transitions from yellow (low charge) to bright orange/red (full charge)
+                let r = 1.0;
+                let g = 1.0 - (charge_level * 0.3); // 1.0 to 0.7
+                let b = charge_level * 0.2; // 0.0 to 0.2
+                (size, Color::srgb(r, g, b))
+            } else {
+                // Normal shot: small red
+                (10.0, Color::srgb(1.0, 0.0, 0.0))
+            };
+
             commands.spawn((
-                Mesh2d(meshes.add(Rectangle::new(10.0, 10.0))),
-                MeshMaterial2d(materials.add(Color::srgb(1.0, 0.0, 0.0))),
+                Mesh2d(meshes.add(Rectangle::new(size, size))),
+                MeshMaterial2d(materials.add(color)),
                 projectile_transform,
                 Projectile {
                     direction: shoot_direction,
+                    charge_level,
                 },
             ));
 
-            shooting.timer = SHOOT_COOLDOWN;
+            // Set cooldown based on shot type
+            shooting.timer = if is_charged_shot {
+                CHARGE_SHOT_COOLDOWN
+            } else {
+                NORMAL_SHOT_COOLDOWN
+            };
+
+            // Reset charge
+            charge_shot.is_charging = false;
+            charge_shot.timer = 0.0;
         }
     }
 }
@@ -719,7 +773,7 @@ pub fn apply_knockback(
 pub fn projectile_boss_collision(
     mut commands: Commands,
     projectile_query: Query<
-        (Entity, &Transform),
+        (Entity, &Transform, &Projectile),
         (
             With<Projectile>,
             Without<Boss>,
@@ -729,20 +783,34 @@ pub fn projectile_boss_collision(
     >,
     mut boss_query: Query<(&Transform, &mut Hp), With<Boss>>,
 ) {
-    const PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
+    const BASE_PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
     const BOSS_SIZE: Vec2 = Vec2::new(32.0, 64.0);
-    const DAMAGE: f32 = crate::systems::config::PLAYER_PROJECTILE_DAMAGE;
 
-    for (projectile_entity, projectile_transform) in &projectile_query {
+    for (projectile_entity, projectile_transform, projectile) in &projectile_query {
+        // Calculate projectile size based on charge level (for collision detection)
+        let charge_multiplier = 1.0 + (projectile.charge_level * 1.5);
+        let projectile_size = BASE_PROJECTILE_SIZE * charge_multiplier;
+
         for (boss_transform, mut boss_hp) in &mut boss_query {
             if check_aabb_collision(
                 projectile_transform.translation,
-                PROJECTILE_SIZE,
+                projectile_size,
                 boss_transform.translation,
                 BOSS_SIZE,
             ) {
+                // Calculate damage based on charge level
+                // Base damage for uncharged shots, multiplied for charged shots
+                let damage = if projectile.charge_level >= CHARGE_SHOT_MIN_TIME / CHARGE_SHOT_MAX_TIME {
+                    // Charged shot: damage scales with charge level
+                    let damage_multiplier = 1.0 + (projectile.charge_level * (CHARGE_SHOT_DAMAGE_MULTIPLIER - 1.0));
+                    PLAYER_PROJECTILE_DAMAGE * damage_multiplier
+                } else {
+                    // Normal shot: base damage
+                    PLAYER_PROJECTILE_DAMAGE
+                };
+
                 // Boss takes damage
-                boss_hp.current = (boss_hp.current - DAMAGE).max(0.0);
+                boss_hp.current = (boss_hp.current - damage).max(0.0);
 
                 // Mark projectile as hit (prevents multiple hits before despawn)
                 commands.entity(projectile_entity).insert(ProjectileHasHit);
