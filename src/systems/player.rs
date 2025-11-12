@@ -295,7 +295,10 @@ pub fn player_shooting(
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    selected_character: Res<SelectedCharacter>,
 ) {
+    let is_megaman = matches!(*selected_character, SelectedCharacter::Megaman);
+
     for (player_transform, player_velocity, mut shooting, mut charge_shot) in &mut player_query {
         shooting.timer -= time.delta_secs();
 
@@ -303,26 +306,9 @@ pub fn player_shooting(
         let shoot_button_just_pressed = keyboard_input.just_pressed(KeyCode::KeyC);
         let shoot_button_just_released = keyboard_input.just_released(KeyCode::KeyC);
 
-        // Start charging when button is pressed
-        if shoot_button_just_pressed && shooting.timer <= 0.0 {
-            charge_shot.is_charging = true;
-            charge_shot.timer = 0.0;
-        }
-
-        // Charge while button is held
-        if charge_shot.is_charging && shoot_button_pressed {
-            charge_shot.timer += time.delta_secs();
-            charge_shot.timer = charge_shot.timer.min(CHARGE_SHOT_MAX_TIME);
-        }
-
-        // Fire when button is released
-        if shoot_button_just_released && charge_shot.is_charging {
-            let charge_level = (charge_shot.timer / CHARGE_SHOT_MAX_TIME).clamp(0.0, 1.0);
-            let is_charged_shot = charge_shot.timer >= CHARGE_SHOT_MIN_TIME;
-
-            // Determine the cardinal shooting direction
+        // Helper function to determine shooting direction
+        let get_shoot_direction = || -> Option<Vec2> {
             let shoot_direction;
-
             // Prioritize vertical over horizontal if both are pressed
             if player_velocity.facing_direction.y > 0.0 {
                 // Facing up
@@ -337,11 +323,13 @@ pub fn player_shooting(
 
             // Prevent shooting downwards
             if shoot_direction.y < 0.0 {
-                charge_shot.is_charging = false;
-                charge_shot.timer = 0.0;
-                continue;
+                return None;
             }
+            Some(shoot_direction)
+        };
 
+        // Helper function to spawn a projectile
+        let mut spawn_projectile = |direction: Vec2, charge_level: f32, is_charged: bool| {
             let projectile_transform = Transform::from_xyz(
                 player_transform.translation.x,
                 player_transform.translation.y,
@@ -349,7 +337,7 @@ pub fn player_shooting(
             );
 
             // Determine projectile size and color based on charge level
-            let (size, color) = if is_charged_shot {
+            let (size, color) = if is_charged {
                 // Charged shot: larger and brighter (yellow/orange)
                 let size_multiplier = 1.0 + (charge_level * 1.5); // 1.0x to 2.5x size
                 let size = 10.0 * size_multiplier;
@@ -368,19 +356,57 @@ pub fn player_shooting(
                 MeshMaterial2d(materials.add(color)),
                 projectile_transform,
                 Projectile {
-                    direction: shoot_direction,
+                    direction,
                     charge_level,
                 },
             ));
+        };
 
-            // Set cooldown based on shot type
-            shooting.timer = if is_charged_shot {
-                CHARGE_SHOT_COOLDOWN
-            } else {
-                NORMAL_SHOT_COOLDOWN
-            };
+        if is_megaman {
+            // Megaman: Charge shot mechanics
+            // Start charging when button is pressed
+            if shoot_button_just_pressed && shooting.timer <= 0.0 {
+                charge_shot.is_charging = true;
+                charge_shot.timer = 0.0;
+            }
 
-            // Reset charge
+            // Charge while button is held
+            if charge_shot.is_charging && shoot_button_pressed {
+                charge_shot.timer += time.delta_secs();
+                charge_shot.timer = charge_shot.timer.min(CHARGE_SHOT_MAX_TIME);
+            }
+
+            // Fire when button is released
+            if shoot_button_just_released && charge_shot.is_charging {
+                if let Some(shoot_direction) = get_shoot_direction() {
+                    let charge_level = (charge_shot.timer / CHARGE_SHOT_MAX_TIME).clamp(0.0, 1.0);
+                    let is_charged_shot = charge_shot.timer >= CHARGE_SHOT_MIN_TIME;
+
+                    spawn_projectile(shoot_direction, charge_level, is_charged_shot);
+
+                    // Set cooldown based on shot type
+                    shooting.timer = if is_charged_shot {
+                        CHARGE_SHOT_COOLDOWN
+                    } else {
+                        NORMAL_SHOT_COOLDOWN
+                    };
+                }
+
+                // Reset charge
+                charge_shot.is_charging = false;
+                charge_shot.timer = 0.0;
+            }
+        } else {
+            // Protoman: Normal shots only (no charge)
+            // Fire immediately when button is pressed
+            if shoot_button_just_pressed && shooting.timer <= 0.0 {
+                if let Some(shoot_direction) = get_shoot_direction() {
+                    spawn_projectile(shoot_direction, 0.0, false);
+                    shooting.timer = NORMAL_SHOT_COOLDOWN;
+                }
+            }
+
+            // Reset any charge state (in case it was set somehow)
             charge_shot.is_charging = false;
             charge_shot.timer = 0.0;
         }
