@@ -1,5 +1,5 @@
 use crate::components::boss::*;
-use crate::components::player::*;
+use crate::components::player::{ChargeEffect, ChargeShot, *};
 use crate::stages::game_menu::PlayerUpgrades;
 use crate::stages::game_menu::{DefeatedBoss, GameState, SelectedCharacter};
 use crate::systems::config::{
@@ -409,6 +409,100 @@ pub fn player_shooting(
             // Reset any charge state (in case it was set somehow)
             charge_shot.is_charging = false;
             charge_shot.timer = 0.0;
+        }
+    }
+}
+
+/// System to manage charge effect visual (spawn/despawn based on charging state)
+pub fn manage_charge_effect(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    player_query: Query<(Entity, &Transform, &ChargeShot), With<Player>>,
+    charge_effect_query: Query<(Entity, &ChargeEffect)>,
+    selected_character: Res<SelectedCharacter>,
+) {
+    let is_megaman = matches!(*selected_character, SelectedCharacter::Megaman);
+
+    if !is_megaman {
+        // Despawn any charge effects if not Megaman
+        for (effect_entity, _) in &charge_effect_query {
+            commands.entity(effect_entity).despawn();
+        }
+        return;
+    }
+
+    // Check if player is charging and doesn't have an effect yet
+    for (player_entity, player_transform, charge_shot) in &player_query {
+        if charge_shot.is_charging {
+            // Spawn charge effect if not already present
+            let has_effect = charge_effect_query
+                .iter()
+                .any(|(_, effect)| effect.player_entity == player_entity);
+
+            if !has_effect {
+                // Spawn a pulsing circle around the player
+                commands.spawn((
+                    Mesh2d(meshes.add(Circle::new(40.0))),
+                    MeshMaterial2d(materials.add(Color::srgba(1.0, 1.0, 0.0, 0.3))), // Yellow, semi-transparent
+                    Transform::from_translation(player_transform.translation),
+                    ChargeEffect {
+                        player_entity,
+                    },
+                ));
+            }
+        }
+    }
+
+    // Despawn charge effects for players that stopped charging
+    for (effect_entity, charge_effect) in &charge_effect_query {
+        if let Ok((_, _, charge_shot)) = player_query.get(charge_effect.player_entity) {
+            if !charge_shot.is_charging {
+                commands.entity(effect_entity).despawn();
+            }
+        } else {
+            // Player doesn't exist, despawn effect
+            commands.entity(effect_entity).despawn();
+        }
+    }
+}
+
+/// System to animate charge effect (pulsing, color changes based on charge level)
+pub fn animate_charge_effect(
+    time: Res<Time>,
+    player_query: Query<(&Transform, &ChargeShot), With<Player>>,
+    mut charge_effect_query: Query<(&ChargeEffect, &mut Transform, &mut MeshMaterial2d<ColorMaterial>), Without<Player>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    for (charge_effect, mut effect_transform, mesh_material) in &mut charge_effect_query {
+        if let Ok((player_transform, charge_shot)) = player_query.get(charge_effect.player_entity) {
+            if charge_shot.is_charging {
+                // Update position to follow player
+                effect_transform.translation = player_transform.translation;
+
+                // Calculate charge level (0.0 to 1.0)
+                let charge_level = (charge_shot.timer / CHARGE_SHOT_MAX_TIME).clamp(0.0, 1.0);
+
+                // Pulsing animation: base size + charge-based size + sine wave pulse
+                let base_size = 40.0;
+                let charge_size = charge_level * 20.0; // Grows up to 20px more when fully charged
+                let pulse = (time.elapsed_secs() * 8.0).sin() * 5.0; // Fast pulsing (8 Hz, ±5px)
+                let current_size = base_size + charge_size + pulse;
+
+                // Update mesh size (we'll need to recreate the mesh, but for now update scale)
+                effect_transform.scale = Vec3::splat(current_size / base_size);
+
+                // Color transitions: yellow -> orange -> red as charge increases
+                let r = 1.0;
+                let g = 1.0 - (charge_level * 0.5); // 1.0 to 0.5
+                let b = charge_level * 0.3; // 0.0 to 0.3
+                let alpha = 0.3 + (charge_level * 0.4); // 0.3 to 0.7 (more opaque when charged)
+
+                // Update material color
+                if let Some(material) = materials.get_mut(&mesh_material.0) {
+                    material.color = Color::srgba(r, g, b, alpha);
+                }
+            }
         }
     }
 }

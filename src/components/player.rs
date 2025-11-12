@@ -91,6 +91,12 @@ pub struct ChargeShot {
     pub is_charging: bool,
 }
 
+/// Component to mark the visual charge effect (glow/particles around player)
+#[derive(Component)]
+pub struct ChargeEffect {
+    pub player_entity: Entity,
+}
+
 /// Component to track invincibility frames (prevents damage spam)
 #[derive(Component)]
 pub struct Invincibility {

@@ -1,5 +1,5 @@
 use crate::components::boss::{Boss, BossHealthBarContainer, BossRegistry};
-use crate::components::player::{BoundaryWall, Floor, HealthBar, HealthBarBackground, HealthBarMask, Player, Projectile};
+use crate::components::player::{BoundaryWall, ChargeEffect, Floor, HealthBar, HealthBarBackground, HealthBarMask, Player, Projectile};
 use crate::stages::game_menu::{BackgroundImage, CurrentStage, GameState, PlayerUpgrades, despawn_screen};
 use crate::systems::boss::{
     BossPatternRegistry, BossProjectile, boss_attacks, boss_movement, boss_projectile_movement,
@@ -7,9 +7,9 @@ use crate::systems::boss::{
 };
 use crate::systems::boundaries::spawn_boundaries;
 use crate::systems::player::{
-    apply_knockback, change_health, check_game_outcome, persist_player_hp, player_boss_collision, player_movement,
-    player_shooting, projectile_boss_collision, projectile_movement, setup_player_hp_bar,
-    spawn_boss, spawn_player_and_level, update_health_bars,
+    animate_charge_effect, apply_knockback, change_health, check_game_outcome, manage_charge_effect,
+    persist_player_hp, player_boss_collision, player_movement, player_shooting, projectile_boss_collision,
+    projectile_movement, setup_player_hp_bar, spawn_boss, spawn_player_and_level, update_health_bars,
 };
 use bevy::prelude::*;
 
@@ -51,6 +51,8 @@ impl Plugin for PlayerPlugin {
                     player_movement,
                     apply_knockback.after(player_movement), // Apply knockback after normal movement
                     player_shooting,
+                    manage_charge_effect.after(player_shooting), // Manage charge effect spawn/despawn
+                    animate_charge_effect.after(manage_charge_effect), // Animate charge effect
                     projectile_movement,
                     boss_movement,            // Boss movement system
                     boss_attacks,             // Boss attack system
@@ -80,6 +82,7 @@ impl Plugin for PlayerPlugin {
                     despawn_screen::<BackgroundImage>,
                     despawn_screen::<BossProjectile>,
                     despawn_screen::<BoundaryWall>,
+                    despawn_screen::<ChargeEffect>,
                 ),
             );
     }
