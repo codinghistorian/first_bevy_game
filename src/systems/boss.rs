@@ -24,6 +24,8 @@ pub enum AttackPatternConfig {
     SingleShot {
         cooldown: f32,
         projectile_speed: f32,
+        #[serde(default)]
+        cardinal_only: bool,
     },
     TripleShot {
         cooldown: f32,
@@ -132,9 +134,11 @@ pub fn convert_attack_pattern(config: &AttackPatternConfig) -> AttackPattern {
         AttackPatternConfig::SingleShot {
             cooldown,
             projectile_speed,
+            cardinal_only,
         } => AttackPattern::SingleShot {
             cooldown: *cooldown,
             projectile_speed: *projectile_speed,
+            cardinal_only: *cardinal_only,
         },
         AttackPatternConfig::TripleShot {
             cooldown,
@@ -305,6 +309,27 @@ pub fn boss_movement(
     }
 }
 
+/// Helper function to snap a direction vector to cardinal directions (horizontal or vertical only)
+/// Returns a normalized vector pointing either horizontally or vertically, whichever is closer
+fn snap_to_cardinal(direction: Vec2) -> Vec2 {
+    if direction.length() < 0.001 {
+        // If direction is zero or very small, default to left (toward player)
+        return Vec2::new(-1.0, 0.0);
+    }
+    
+    let abs_x = direction.x.abs();
+    let abs_y = direction.y.abs();
+    
+    // Choose the axis with the larger component
+    if abs_x > abs_y {
+        // Horizontal direction
+        Vec2::new(direction.x.signum(), 0.0)
+    } else {
+        // Vertical direction
+        Vec2::new(0.0, direction.y.signum())
+    }
+}
+
 /// System to handle boss attacks based on pattern
 pub fn boss_attacks(
     time: Res<Time>,
@@ -324,13 +349,19 @@ pub fn boss_attacks(
             AttackPattern::SingleShot {
                 cooldown,
                 projectile_speed,
+                cardinal_only,
             } => {
                 if attack_state.timer <= 0.0 {
                     // Get player position for aiming
                     if let Ok(player_transform) = player_query.single() {
-                        let direction = (player_transform.translation - boss_transform.translation)
+                        let mut direction = (player_transform.translation - boss_transform.translation)
                             .truncate()
                             .normalize_or_zero();
+                        
+                        // Snap to cardinal directions if enabled
+                        if *cardinal_only {
+                            direction = snap_to_cardinal(direction);
+                        }
 
                         spawn_boss_projectile(
                             &mut commands,

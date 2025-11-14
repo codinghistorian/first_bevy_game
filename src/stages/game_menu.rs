@@ -20,24 +20,24 @@ pub enum GameState {
 /// Resource to store the currently selected character
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectedCharacter {
-    Megaman,
-    Protoman,
+    Breadman,
+    Cheeseman,
 }
 
 impl Default for SelectedCharacter {
     fn default() -> Self {
-        SelectedCharacter::Megaman
+        SelectedCharacter::Breadman
     }
 }
 
 /// Component to mark character selection buttons
 #[derive(Component)]
 pub enum CharacterButton {
-    Megaman,
-    Protoman,
+    Breadman,
+    Cheeseman,
 }
 
-/// Resource to track which character box is currently selected (0 = Megaman, 1 = Protoman)
+/// Resource to track which character box is currently selected (0 = Breadman, 1 = Cheeseman)
 #[derive(Resource, Default)]
 pub struct SelectedCharacterIndex(pub usize);
 
@@ -278,7 +278,7 @@ pub fn spawn_ui_camera(mut commands: Commands) {
 /// Spawns the character selection menu UI when entering the CharacterSelection state
 pub fn spawn_character_selection_menu(mut commands: Commands) {
     // Create two character boxes
-    let megaman_entity = commands
+    let breadman_entity = commands
         .spawn((
             Button,
             Node {
@@ -293,13 +293,13 @@ pub fn spawn_character_selection_menu(mut commands: Commands) {
                 ..default()
             },
             BackgroundColor(Color::srgb(0.2, 0.4, 0.9)),
-            BorderColor::all(Color::srgb(1.0, 0.8, 0.0)), // Start with glow (Megaman is default selected)
-            CharacterButton::Megaman,
+            BorderColor::all(Color::srgb(1.0, 0.8, 0.0)), // Start with glow (Breadman is default selected)
+            CharacterButton::Breadman,
         ))
         .with_children(|parent| {
             // Character name
             parent.spawn((
-                Text::new("Megaman"),
+                Text::new("Breadman"),
                 TextFont {
                     font_size: 36.0,
                     ..default()
@@ -309,7 +309,7 @@ pub fn spawn_character_selection_menu(mut commands: Commands) {
         })
         .id();
 
-    let protoman_entity = commands
+    let cheeseman_entity = commands
         .spawn((
             Button,
             Node {
@@ -325,12 +325,12 @@ pub fn spawn_character_selection_menu(mut commands: Commands) {
             },
             BackgroundColor(Color::srgb(0.9, 0.2, 0.2)),
             BorderColor::all(Color::srgb(0.7, 0.1, 0.1)), // Not selected
-            CharacterButton::Protoman,
+            CharacterButton::Cheeseman,
         ))
         .with_children(|parent| {
             // Character name
             parent.spawn((
-                Text::new("Protoman"),
+                Text::new("Cheeseman"),
                 TextFont {
                     font_size: 36.0,
                     ..default()
@@ -374,8 +374,8 @@ pub fn spawn_character_selection_menu(mut commands: Commands) {
                     align_items: AlignItems::Center,
                     ..default()
                 })
-                .add_child(megaman_entity)
-                .add_child(protoman_entity);
+                .add_child(breadman_entity)
+                .add_child(cheeseman_entity);
         });
 }
 
@@ -478,8 +478,8 @@ pub fn handle_keyboard_selection(
     // Update border colors based on selection
     for (button, mut border_color) in &mut border_query {
         let is_selected = match button {
-            CharacterButton::Megaman => selected_index.0 == 0,
-            CharacterButton::Protoman => selected_index.0 == 1,
+            CharacterButton::Breadman => selected_index.0 == 0,
+            CharacterButton::Cheeseman => selected_index.0 == 1,
         };
 
         if is_selected {
@@ -488,10 +488,10 @@ pub fn handle_keyboard_selection(
         } else {
             // Normal border
             match button {
-                CharacterButton::Megaman => {
+                CharacterButton::Breadman => {
                     *border_color = BorderColor::all(Color::srgb(0.1, 0.2, 0.7));
                 }
-                CharacterButton::Protoman => {
+                CharacterButton::Cheeseman => {
                     *border_color = BorderColor::all(Color::srgb(0.7, 0.1, 0.1));
                 }
             }
@@ -502,12 +502,12 @@ pub fn handle_keyboard_selection(
     if keyboard_input.just_pressed(KeyCode::Enter) || keyboard_input.just_pressed(KeyCode::Space) {
         match selected_index.0 {
             0 => {
-                *selected_character = SelectedCharacter::Megaman;
-                info!("Selected character: Megaman");
+                *selected_character = SelectedCharacter::Breadman;
+                info!("Selected character: Breadman");
             }
             1 => {
-                *selected_character = SelectedCharacter::Protoman;
-                info!("Selected character: Protoman");
+                *selected_character = SelectedCharacter::Cheeseman;
+                info!("Selected character: Cheeseman");
             }
             _ => {}
         }

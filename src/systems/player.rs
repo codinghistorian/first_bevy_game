@@ -21,8 +21,8 @@ pub fn spawn_player_and_level(
 ) {
     // Determine character color based on selection
     let character_color = match *selected_character {
-        SelectedCharacter::Megaman => Color::srgb(0.2, 0.4, 0.9), // Blue
-        SelectedCharacter::Protoman => Color::srgb(0.9, 0.2, 0.2), // Red
+        SelectedCharacter::Breadman => Color::srgb(0.2, 0.4, 0.9), // Blue
+        SelectedCharacter::Cheeseman => Color::srgb(0.9, 0.2, 0.2), // Red
     };
 
     // Calculate HP with upgrades
@@ -297,7 +297,7 @@ pub fn player_shooting(
     mut materials: ResMut<Assets<ColorMaterial>>,
     selected_character: Res<SelectedCharacter>,
 ) {
-    let is_megaman = matches!(*selected_character, SelectedCharacter::Megaman);
+    let is_breadman = matches!(*selected_character, SelectedCharacter::Breadman);
 
     for (player_transform, player_velocity, mut shooting, mut charge_shot) in &mut player_query {
         shooting.timer -= time.delta_secs();
@@ -362,8 +362,8 @@ pub fn player_shooting(
             ));
         };
 
-        if is_megaman {
-            // Megaman: Charge shot mechanics
+        if is_breadman {
+            // Breadman: Charge shot mechanics
             // Start charging when button is pressed
             if shoot_button_just_pressed && shooting.timer <= 0.0 {
                 charge_shot.is_charging = true;
@@ -397,7 +397,7 @@ pub fn player_shooting(
                 charge_shot.timer = 0.0;
             }
         } else {
-            // Protoman: Normal shots only (no charge)
+            // Cheeseman: Normal shots only (no charge)
             // Fire immediately when button is pressed
             if shoot_button_just_pressed && shooting.timer <= 0.0 {
                 if let Some(shoot_direction) = get_shoot_direction() {
@@ -422,10 +422,10 @@ pub fn manage_charge_effect(
     charge_effect_query: Query<(Entity, &ChargeEffect)>,
     selected_character: Res<SelectedCharacter>,
 ) {
-    let is_megaman = matches!(*selected_character, SelectedCharacter::Megaman);
+    let is_breadman = matches!(*selected_character, SelectedCharacter::Breadman);
 
-    if !is_megaman {
-        // Despawn any charge effects if not Megaman
+    if !is_breadman {
+        // Despawn any charge effects if not Breadman
         for (effect_entity, _) in &charge_effect_query {
             commands.entity(effect_entity).despawn();
         }

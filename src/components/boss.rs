@@ -63,6 +63,7 @@ pub enum AttackPattern {
     SingleShot {
         cooldown: f32,
         projectile_speed: f32,
+        cardinal_only: bool,
     },
     /// Triple shot pattern
     TripleShot {
@@ -89,6 +90,7 @@ impl Default for AttackPattern {
         AttackPattern::SingleShot {
             cooldown: 2.0,
             projectile_speed: 300.0,
+            cardinal_only: false,
         }
     }
 }
@@ -179,6 +181,7 @@ impl Default for BossRegistry {
                     attack_pattern: AttackPattern::SingleShot {
                         cooldown: 2.0,
                         projectile_speed: 300.0,
+                        cardinal_only: false,
                     },
                     movement_pattern: MovementPattern::Stationary,
                     color: Color::srgb(0.8, 0.1, 0.1),

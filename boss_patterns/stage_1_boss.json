@@ -2,7 +2,8 @@
   "attack": {
     "type": "SingleShot",
     "cooldown": 1.5,
-    "projectile_speed": 400.0
+    "projectile_speed": 400.0,
+    "cardinal_only": true
   },
   "movement": {
     "type": "HorizontalPatrol",
