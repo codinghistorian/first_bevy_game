@@ -889,6 +889,32 @@ pub fn apply_knockback(
     }
 }
 
+/// System to apply knockback effect to boss
+pub fn apply_boss_knockback(
+    time: Res<Time>,
+    mut boss_query: Query<(Entity, &mut Transform, &mut Knockback), With<Boss>>,
+    mut commands: Commands,
+) {
+    for (entity, mut transform, mut knockback) in &mut boss_query {
+        // Apply knockback velocity
+        transform.translation.x += knockback.velocity.x * time.delta_secs();
+        transform.translation.y += knockback.velocity.y * time.delta_secs();
+
+        // Keep boss within boundaries even during knockback
+        transform.translation.x = transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
+        transform.translation.y = transform.translation.y.clamp(BOUNDARY_BOTTOM, BOUNDARY_TOP);
+
+        // Decay knockback over time
+        knockback.velocity *= KNOCKBACK_DECAY_RATE; // Reduce velocity each frame
+        knockback.timer -= time.delta_secs();
+
+        // Remove knockback when timer expires
+        if knockback.timer <= 0.0 {
+            commands.entity(entity).remove::<Knockback>();
+        }
+    }
+}
+
 /// System to handle projectile-boss collision (boss takes damage, projectile despawns)
 pub fn projectile_boss_collision(
     mut commands: Commands,
@@ -901,7 +927,7 @@ pub fn projectile_boss_collision(
             Without<crate::systems::boss::BossProjectile>,
         ),
     >,
-    mut boss_query: Query<(&Transform, &mut Hp), With<Boss>>,
+    mut boss_query: Query<(Entity, &Transform, &mut Hp), With<Boss>>,
 ) {
     const BASE_PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
     const BOSS_SIZE: Vec2 = Vec2::new(32.0, 64.0);
@@ -911,7 +937,7 @@ pub fn projectile_boss_collision(
         let charge_multiplier = 1.0 + (projectile.charge_level * 1.5);
         let projectile_size = BASE_PROJECTILE_SIZE * charge_multiplier;
 
-        for (boss_transform, mut boss_hp) in &mut boss_query {
+        for (boss_entity, boss_transform, mut boss_hp) in &mut boss_query {
             if check_aabb_collision(
                 projectile_transform.translation,
                 projectile_size,
@@ -920,7 +946,8 @@ pub fn projectile_boss_collision(
             ) {
                 // Calculate damage based on charge level
                 // Base damage for uncharged shots, multiplied for charged shots
-                let damage = if projectile.charge_level >= CHARGE_SHOT_MIN_TIME / CHARGE_SHOT_MAX_TIME {
+                let is_charged_shot = projectile.charge_level >= CHARGE_SHOT_MIN_TIME / CHARGE_SHOT_MAX_TIME;
+                let damage = if is_charged_shot {
                     // Charged shot: damage scales with charge level
                     let damage_multiplier = 1.0 + (projectile.charge_level * (CHARGE_SHOT_DAMAGE_MULTIPLIER - 1.0));
                     PLAYER_PROJECTILE_DAMAGE * damage_multiplier
@@ -931,6 +958,16 @@ pub fn projectile_boss_collision(
 
                 // Boss takes damage
                 boss_hp.current = (boss_hp.current - damage).max(0.0);
+
+                // Apply knockback to boss if hit by charged shot
+                if is_charged_shot {
+                    // Knockback direction is the same as projectile direction (pushes boss away from player)
+                    let knockback_direction = projectile.direction.normalize_or_zero();
+                    commands.entity(boss_entity).insert(Knockback {
+                        velocity: knockback_direction * KNOCKBACK_FORCE,
+                        timer: KNOCKBACK_DURATION,
+                    });
+                }
 
                 // Mark projectile as hit (prevents multiple hits before despawn)
                 commands.entity(projectile_entity).insert(ProjectileHasHit);
