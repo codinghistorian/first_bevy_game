@@ -5,9 +5,10 @@ use crate::stages::game_menu::{DefeatedBoss, GameState, SelectedCharacter};
 use crate::systems::config::{
     BOUNDARY_BOTTOM, BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, CHARGE_SHOT_COOLDOWN,
     CHARGE_SHOT_DAMAGE_MULTIPLIER, CHARGE_SHOT_MAX_TIME, CHARGE_SHOT_MIN_TIME,
-    INVINCIBILITY_DURATION, KNOCKBACK_DECAY_RATE, KNOCKBACK_DURATION, KNOCKBACK_FORCE,
-    KNOCKBACK_MOVEMENT_REDUCTION, NORMAL_SHOT_COOLDOWN, PLAYER_HP_BAR_MARGIN_LEFT,
-    PLAYER_HP_BAR_RADIUS, PLAYER_PROJECTILE_DAMAGE, SMALL_JUMP_CHARGE_RATIO,
+    CHARGE_SHOT_STRONG_THRESHOLD, INVINCIBILITY_DURATION, KNOCKBACK_DECAY_RATE,
+    KNOCKBACK_DURATION, KNOCKBACK_FORCE, KNOCKBACK_MOVEMENT_REDUCTION, NORMAL_SHOT_COOLDOWN,
+    PLAYER_HP_BAR_MARGIN_LEFT, PLAYER_HP_BAR_RADIUS, PLAYER_PROJECTILE_DAMAGE,
+    SMALL_JUMP_CHARGE_RATIO,
 };
 use bevy::prelude::*;
 
@@ -1057,12 +1058,13 @@ pub fn projectile_boss_collision(
             ) {
                 // Calculate damage based on charge level
                 // Base damage for uncharged shots, multiplied for charged shots
-                let is_charged_shot =
-                    projectile.charge_level >= CHARGE_SHOT_MIN_TIME / CHARGE_SHOT_MAX_TIME;
+                let charge_ratio = projectile.charge_level;
+                let is_charged_shot = charge_ratio >= CHARGE_SHOT_MIN_TIME / CHARGE_SHOT_MAX_TIME;
+                let is_strongest_charge_shot = charge_ratio >= CHARGE_SHOT_STRONG_THRESHOLD;
                 let damage = if is_charged_shot {
                     // Charged shot: damage scales with charge level
                     let damage_multiplier =
-                        1.0 + (projectile.charge_level * (CHARGE_SHOT_DAMAGE_MULTIPLIER - 1.0));
+                        1.0 + (charge_ratio * (CHARGE_SHOT_DAMAGE_MULTIPLIER - 1.0));
                     PLAYER_PROJECTILE_DAMAGE * damage_multiplier
                 } else {
                     // Normal shot: base damage
@@ -1078,7 +1080,7 @@ pub fn projectile_boss_collision(
                 });
 
                 // Apply knockback to boss if hit by charged shot
-                if is_charged_shot {
+                if is_strongest_charge_shot {
                     // Knockback direction is the same as projectile direction (pushes boss away from player)
                     let knockback_direction = projectile.direction.normalize_or_zero();
                     commands.entity(boss_entity).insert(Knockback {

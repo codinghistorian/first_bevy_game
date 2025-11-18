@@ -54,6 +54,8 @@ pub const PLAYER_HP_BAR_MARGIN_LEFT: f32 = 20.0; // Left margin from screen edge
 pub const CHARGE_SHOT_MAX_TIME: f32 = 1.0; // Maximum charge time in seconds
 pub const CHARGE_SHOT_MIN_TIME: f32 = 0.1; // Minimum charge time to fire a charged shot (prevents accidental charges)
 pub const CHARGE_SHOT_COOLDOWN: f32 = 0.3; // Cooldown after firing a charged shot
+pub const CHARGE_SHOT_STRONG_THRESHOLD: f32 =
+    0.95; // Charge ratio required for strongest shot bonuses (e.g., knockback)
 pub const NORMAL_SHOT_COOLDOWN: f32 = 0.5; // Cooldown for normal (quick tap) shots
 
 // Damage values for collisions
