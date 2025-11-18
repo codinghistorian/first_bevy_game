@@ -873,6 +873,7 @@ pub fn apply_knockback(
         // Remove knockback when timer expires
         if knockback.timer <= 0.0 {
             commands.entity(entity).remove::<Knockback>();
+            commands.entity(entity).insert(Visibility::Visible);
         }
     }
 }
@@ -899,6 +900,7 @@ pub fn apply_boss_knockback(
         // Remove knockback when timer expires
         if knockback.timer <= 0.0 {
             commands.entity(entity).remove::<Knockback>();
+            commands.entity(entity).insert(Visibility::Visible);
         }
     }
 }
@@ -1041,11 +1043,11 @@ pub fn update_invincibility_timers(
     }
 }
 
-/// System to make invincible entities blink (toggle visibility)
-/// This provides visual feedback that invincibility frames are active
+/// System to make invincible entities blink (toggle visibility) while under knockback
+/// This provides visual feedback that knockback (and its invincibility window) is active
 pub fn invincibility_blink(
     mut commands: Commands,
-    mut invincible_query: Query<(Entity, &Invincibility, Option<&mut Visibility>)>,
+    mut invincible_query: Query<(Entity, &Invincibility, Option<&mut Visibility>), With<Knockback>>,
 ) {
     const BLINK_RATE: f32 = 0.1; // Toggle visibility every 0.1 seconds
 
