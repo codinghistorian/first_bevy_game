@@ -35,6 +35,8 @@ pub struct PlayerVelocity {
     pub y: f32,
     pub jump_type: JumpType,
     pub facing_direction: Vec2,
+    pub wall_slide: Option<WallSide>,
+    pub can_wall_jump: bool,
 }
 
 /// Component to track jump charging (hold duration)
@@ -50,6 +52,13 @@ pub enum JumpType {
     None,
     High,
     Small,
+}
+
+/// Represents which wall the player is currently touching
+#[derive(Clone, Copy, PartialEq)]
+pub enum WallSide {
+    Left,
+    Right,
 }
 
 /// Marker component for the floor/platform

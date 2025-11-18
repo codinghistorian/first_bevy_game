@@ -55,6 +55,8 @@ pub fn spawn_player_and_level(
             y: 0.0,
             jump_type: JumpType::None,
             facing_direction: Vec2::new(1.0, 0.0),
+            wall_slide: None,
+            can_wall_jump: false,
         },
         JumpCharge {
             timer: 0.0,
@@ -164,6 +166,10 @@ pub fn player_movement(
     const SMALL_JUMP_GRAVITY: f32 = BASE_GRAVITY * 1.2; // 960.0
 
     const MAX_CHARGE_TIME: f32 = 0.2; // Maximum charge time for high jump (0.2 seconds)
+    const WALL_DETECT_TOLERANCE: f32 = 1.0;
+    const WALL_SLIDE_MAX_DESCENT: f32 = -200.0;
+    const WALL_JUMP_STRENGTH: f32 = 520.0;
+    const WALL_JUMP_HORIZONTAL_PUSH: f32 = 12.0;
 
     for (entity, mut transform, mut velocity, mut jump_charge, dash, knockback) in &mut player_query
     {
@@ -217,6 +223,47 @@ pub fn player_movement(
             || keyboard_input.just_released(KeyCode::KeyX);
 
         let is_on_ground = transform.translation.y <= GROUND_Y;
+        let touching_left_wall = transform.translation.x <= BOUNDARY_LEFT + WALL_DETECT_TOLERANCE;
+        let touching_right_wall = transform.translation.x >= BOUNDARY_RIGHT - WALL_DETECT_TOLERANCE;
+
+        if is_on_ground {
+            velocity.wall_slide = None;
+            velocity.can_wall_jump = false;
+        } else if touching_left_wall || touching_right_wall {
+            let side = if touching_left_wall {
+                WallSide::Left
+            } else {
+                WallSide::Right
+            };
+
+            if velocity.wall_slide != Some(side) {
+                velocity.wall_slide = Some(side);
+                velocity.can_wall_jump = true;
+            }
+
+            if velocity.y < WALL_SLIDE_MAX_DESCENT {
+                velocity.y = WALL_SLIDE_MAX_DESCENT;
+            }
+        } else if velocity.wall_slide.is_some() {
+            velocity.wall_slide = None;
+            velocity.can_wall_jump = false;
+        }
+
+        let mut wall_jump_triggered = false;
+        if !is_on_ground && jump_button_just_pressed {
+            if let Some(side) = velocity.wall_slide {
+                if velocity.can_wall_jump {
+                    wall_jump_triggered = true;
+                    let horizontal_dir = if side == WallSide::Left { 1.0 } else { -1.0 };
+                    velocity.y = WALL_JUMP_STRENGTH;
+                    velocity.jump_type = JumpType::High;
+                    velocity.wall_slide = None;
+                    velocity.can_wall_jump = false;
+                    velocity.facing_direction = Vec2::new(horizontal_dir, 0.0);
+                    transform.translation.x += horizontal_dir * WALL_JUMP_HORIZONTAL_PUSH;
+                }
+            }
+        }
 
         // Dash
         if keyboard_input.pressed(KeyCode::ArrowDown) && jump_button_just_pressed && is_on_ground {
@@ -227,38 +274,43 @@ pub fn player_movement(
             return; // No other movement during dash
         }
 
-        // Start charging jump when button is pressed on ground
-        if jump_button_just_pressed && is_on_ground {
-            jump_charge.is_charging = true;
-            jump_charge.timer = 0.0;
-        }
-
-        // Charge jump while button is held
-        if jump_charge.is_charging && jump_button_pressed && is_on_ground {
-            jump_charge.timer += time.delta_secs();
-        }
-
-        // Execute jump when button is released
-        if jump_button_just_released && jump_charge.is_charging {
-            if is_on_ground {
-                // Calculate jump strength based on charge time
-                let charge_ratio = (jump_charge.timer / MAX_CHARGE_TIME).clamp(0.0, 1.0);
-
-                // Interpolate between small and high jump based on charge time
-                if charge_ratio < SMALL_JUMP_CHARGE_RATIO {
-                    // Short press = small jump
-                    velocity.y = SMALL_JUMP_STRENGTH;
-                    velocity.jump_type = JumpType::Small;
-                } else {
-                    // Long press = high jump
-                    velocity.y = HIGH_JUMP_STRENGTH;
-                    velocity.jump_type = JumpType::High;
-                }
-            }
-
-            // Reset charge
+        if wall_jump_triggered {
             jump_charge.is_charging = false;
             jump_charge.timer = 0.0;
+        } else {
+            // Start charging jump when button is pressed on ground
+            if jump_button_just_pressed && is_on_ground {
+                jump_charge.is_charging = true;
+                jump_charge.timer = 0.0;
+            }
+
+            // Charge jump while button is held
+            if jump_charge.is_charging && jump_button_pressed && is_on_ground {
+                jump_charge.timer += time.delta_secs();
+            }
+
+            // Execute jump when button is released
+            if jump_button_just_released && jump_charge.is_charging {
+                if is_on_ground {
+                    // Calculate jump strength based on charge time
+                    let charge_ratio = (jump_charge.timer / MAX_CHARGE_TIME).clamp(0.0, 1.0);
+
+                    // Interpolate between small and high jump based on charge time
+                    if charge_ratio < SMALL_JUMP_CHARGE_RATIO {
+                        // Short press = small jump
+                        velocity.y = SMALL_JUMP_STRENGTH;
+                        velocity.jump_type = JumpType::Small;
+                    } else {
+                        // Long press = high jump
+                        velocity.y = HIGH_JUMP_STRENGTH;
+                        velocity.jump_type = JumpType::High;
+                    }
+                }
+
+                // Reset charge
+                jump_charge.is_charging = false;
+                jump_charge.timer = 0.0;
+            }
         }
 
         // Determine gravity based on current jump type
