@@ -316,10 +316,10 @@ fn snap_to_cardinal(direction: Vec2) -> Vec2 {
         // If direction is zero or very small, default to left (toward player)
         return Vec2::new(-1.0, 0.0);
     }
-    
+
     let abs_x = direction.x.abs();
     let abs_y = direction.y.abs();
-    
+
     // Choose the axis with the larger component
     if abs_x > abs_y {
         // Horizontal direction
@@ -354,10 +354,11 @@ pub fn boss_attacks(
                 if attack_state.timer <= 0.0 {
                     // Get player position for aiming
                     if let Ok(player_transform) = player_query.single() {
-                        let mut direction = (player_transform.translation - boss_transform.translation)
+                        let mut direction = (player_transform.translation
+                            - boss_transform.translation)
                             .truncate()
                             .normalize_or_zero();
-                        
+
                         // Snap to cardinal directions if enabled
                         if *cardinal_only {
                             direction = snap_to_cardinal(direction);
@@ -514,11 +515,7 @@ pub fn boss_projectile_player_collision(
         (Entity, &Transform, &Projectile),
         (With<BossProjectile>, Without<Player>),
     >,
-    mut player_query: Query<
-        (Entity, &Transform, &mut Hp, Option<&mut Invincibility>),
-        With<Player>,
-    >,
-    time: Res<Time>,
+    mut player_query: Query<(Entity, &Transform, &mut Hp, Option<&Invincibility>), With<Player>>,
     player_upgrades: Option<Res<crate::stages::game_menu::PlayerUpgrades>>,
 ) {
     use crate::systems::config::INVINCIBILITY_DURATION;
@@ -536,22 +533,7 @@ pub fn boss_projectile_player_collision(
 
     for (projectile_entity, projectile_transform, projectile) in &projectile_query {
         for (player_entity, player_transform, mut player_hp, invincibility) in &mut player_query {
-            // Check if player is invincible
-            let is_invincible = if let Some(mut inv) = invincibility {
-                inv.timer -= time.delta_secs();
-                if inv.timer > 0.0 {
-                    true
-                } else {
-                    commands.entity(player_entity).remove::<Invincibility>();
-                    // Restore visibility when invincibility ends
-                    commands.entity(player_entity).insert(Visibility::Visible);
-                    false
-                }
-            } else {
-                false
-            };
-
-            if is_invincible {
+            if invincibility.is_some() {
                 continue;
             }
 
@@ -620,45 +602,47 @@ pub fn setup_boss_hp_bar(mut commands: Commands, boss_query: Query<Entity, With<
         }
     };
 
-    commands.spawn((root_node, BossHealthBarContainer)).with_children(|parent| {
-        // HP bar container with configurable positioning
-        let hp_bar_node = if BOSS_HP_BAR_USE_CENTER {
-            // Centered - no margins needed
-            Node {
-                width: px(BOSS_HP_BAR_WIDTH),
-                height: px(BOSS_HP_BAR_HEIGHT),
-                border: UiRect::all(px(2.0)),
-                ..default()
-            }
-        } else {
-            // Margin-based positioning
-            Node {
-                width: px(BOSS_HP_BAR_WIDTH),
-                height: px(BOSS_HP_BAR_HEIGHT),
-                margin: UiRect {
-                    left: px(BOSS_HP_BAR_MARGIN_LEFT),
-                    top: px(BOSS_HP_BAR_MARGIN_TOP),
-                    right: px(BOSS_HP_BAR_MARGIN_RIGHT),
-                    bottom: px(BOSS_HP_BAR_MARGIN_BOTTOM),
-                },
-                border: UiRect::all(px(2.0)),
-                ..default()
-            }
-        };
-
-        parent
-            .spawn((hp_bar_node, BackgroundColor(Color::BLACK.into())))
-            .with_children(|hp_parent| {
-                // HP bar fill
-                hp_parent.spawn((
-                    Node {
-                        width: percent(100.0),
-                        height: percent(100.0),
-                        ..default()
+    commands
+        .spawn((root_node, BossHealthBarContainer))
+        .with_children(|parent| {
+            // HP bar container with configurable positioning
+            let hp_bar_node = if BOSS_HP_BAR_USE_CENTER {
+                // Centered - no margins needed
+                Node {
+                    width: px(BOSS_HP_BAR_WIDTH),
+                    height: px(BOSS_HP_BAR_HEIGHT),
+                    border: UiRect::all(px(2.0)),
+                    ..default()
+                }
+            } else {
+                // Margin-based positioning
+                Node {
+                    width: px(BOSS_HP_BAR_WIDTH),
+                    height: px(BOSS_HP_BAR_HEIGHT),
+                    margin: UiRect {
+                        left: px(BOSS_HP_BAR_MARGIN_LEFT),
+                        top: px(BOSS_HP_BAR_MARGIN_TOP),
+                        right: px(BOSS_HP_BAR_MARGIN_RIGHT),
+                        bottom: px(BOSS_HP_BAR_MARGIN_BOTTOM),
                     },
-                    BackgroundColor(Color::srgb(1.0, 0.0, 0.0).into()), // Red for boss
-                    HealthBar { entity: boss },
-                ));
-            });
-    });
+                    border: UiRect::all(px(2.0)),
+                    ..default()
+                }
+            };
+
+            parent
+                .spawn((hp_bar_node, BackgroundColor(Color::BLACK.into())))
+                .with_children(|hp_parent| {
+                    // HP bar fill
+                    hp_parent.spawn((
+                        Node {
+                            width: percent(100.0),
+                            height: percent(100.0),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgb(1.0, 0.0, 0.0).into()), // Red for boss
+                        HealthBar { entity: boss },
+                    ));
+                });
+        });
 }

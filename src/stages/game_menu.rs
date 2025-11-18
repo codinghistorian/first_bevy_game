@@ -1,10 +1,12 @@
+use crate::systems::config::{
+    BACKGROUND_PADDING, BOUNDARY_BOTTOM, BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP,
+};
 use bevy::text::prelude::{TextColor, TextFont};
 use bevy::{
     color::palettes::basic::{BLACK, WHITE},
     prelude::*,
     sprite::Anchor,
 };
-use crate::systems::config::{BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, BOUNDARY_BOTTOM, BACKGROUND_PADDING};
 
 /// Game state to manage transitions between character selection and gameplay
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States, Component)]
@@ -126,7 +128,7 @@ impl Default for PlayerUpgrades {
     fn default() -> Self {
         Self {
             max_hp_bonus: 0.0,
-            current_hp: 100.0, // Start with base max HP
+            current_hp: 100.0,       // Start with base max HP
             defense_multiplier: 1.0, // Start with no defense bonus
             has_boss_weapon: false,
             boss_weapon_type: None,
@@ -135,22 +137,31 @@ impl Default for PlayerUpgrades {
 }
 
 /// Loads background images for each stage dynamically by iterating through available images
-pub fn load_background_images(mut background_images: ResMut<BackgroundImages>, asset_server: Res<AssetServer>) {
+pub fn load_background_images(
+    mut background_images: ResMut<BackgroundImages>,
+    asset_server: Res<AssetServer>,
+) {
     info!("Loading background images for stage 1...");
-    
+
     // Maximum number of images to check (adjust if you have more than 30 images)
     const MAX_IMAGES: u32 = 30;
-    
+
     // Iterate through all possible image numbers and load them
     let mut handles = Vec::new();
     for i in 1..=MAX_IMAGES {
         let image_path = format!("images/backgrounds/stage_1/stage_1_{}.jpg", i);
         handles.push(asset_server.load(image_path));
     }
-    
+
     background_images.stage_1 = handles;
-    info!("Attempted to load up to {} background images for stage 1", MAX_IMAGES);
-    info!("Loaded {} background image handles for stage 1", background_images.stage_1.len());
+    info!(
+        "Attempted to load up to {} background images for stage 1",
+        MAX_IMAGES
+    );
+    info!(
+        "Loaded {} background image handles for stage 1",
+        background_images.stage_1.len()
+    );
     for (i, handle) in background_images.stage_1.iter().enumerate() {
         info!("Stage 1 image {}: handle id = {:?}", i + 1, handle.id());
     }
@@ -166,14 +177,14 @@ pub fn filter_loaded_background_images(
 ) {
     // Wait 0.5 seconds before filtering to give assets time to load/fail
     let wait_time = 0.5;
-    
+
     let elapsed = timer.get_or_insert(0.0);
     *elapsed += time.delta_secs();
-    
+
     if *elapsed < wait_time {
         return;
     }
-    
+
     // Only filter once
     if *elapsed >= wait_time + 0.1 {
         return;
@@ -188,7 +199,7 @@ pub fn filter_loaded_background_images(
             valid_handles.push(handle.clone());
         }
     }
-    
+
     // Only update if we found valid images and the count is different
     if !valid_handles.is_empty() && valid_handles.len() != background_images.stage_1.len() {
         info!(
@@ -412,23 +423,27 @@ pub fn spawn_in_game_screen(
                 stage_number,
                 image_handles.len()
             );
-            
+
             // Get the first image handle
             let first_handle = &image_handles[0];
             let load_state = asset_server.load_state(first_handle);
-            info!("First background image load state: {:?}, handle id: {:?}", load_state, first_handle.id());
-            
+            info!(
+                "First background image load state: {:?}, handle id: {:?}",
+                load_state,
+                first_handle.id()
+            );
+
             // Calculate background size to be slightly larger than game boundaries
             let bg_width = (BOUNDARY_RIGHT - BOUNDARY_LEFT) + (BACKGROUND_PADDING * 2.0);
             let bg_height = (BOUNDARY_TOP - BOUNDARY_BOTTOM) + (BACKGROUND_PADDING * 2.0);
             let bg_center_x = (BOUNDARY_LEFT + BOUNDARY_RIGHT) / 2.0;
             let bg_center_y = (BOUNDARY_BOTTOM + BOUNDARY_TOP) / 2.0;
-            
+
             info!(
                 "Background size: {}x{}, center: ({}, {})",
                 bg_width, bg_height, bg_center_x, bg_center_y
             );
-            
+
             // Spawn background sprite - ensure all required components are present
             commands.spawn((
                 Sprite {
@@ -445,11 +460,17 @@ pub fn spawn_in_game_screen(
                 BackgroundImage,
             ));
         } else {
-            warn!("No background images available for stage {}", current_stage.0);
+            warn!(
+                "No background images available for stage {}",
+                current_stage.0
+            );
             commands.insert_resource(ClearColor(Color::BLACK));
         }
     } else {
-        info!("No background images configured for stage {}", current_stage.0);
+        info!(
+            "No background images configured for stage {}",
+            current_stage.0
+        );
         commands.insert_resource(ClearColor(Color::BLACK));
     }
 }
@@ -717,7 +738,6 @@ pub fn spawn_stage_upgrade_screen(
         })
         .id();
 
-
     // Create the root menu container
     commands
         .spawn((
@@ -823,8 +843,13 @@ pub fn handle_upgrade_input(
             0 => {
                 // Restore HP
                 let max_hp = 100.0 + player_upgrades.max_hp_bonus;
-                player_upgrades.current_hp = (player_upgrades.current_hp + crate::systems::config::HP_RESTORATION_AMOUNT).min(max_hp);
-                info!("Selected upgrade: Restore HP (+{})", crate::systems::config::HP_RESTORATION_AMOUNT);
+                player_upgrades.current_hp = (player_upgrades.current_hp
+                    + crate::systems::config::HP_RESTORATION_AMOUNT)
+                    .min(max_hp);
+                info!(
+                    "Selected upgrade: Restore HP (+{})",
+                    crate::systems::config::HP_RESTORATION_AMOUNT
+                );
             }
             1 => {
                 // Acquire boss weapon
@@ -908,7 +933,10 @@ impl Plugin for GameMenuPlugin {
                 OnExit(GameState::CharacterSelection),
                 despawn_screen::<CharacterSelectionMenu>,
             )
-            .add_systems(OnEnter(GameState::InGame), (despawn_ui_camera, spawn_in_game_screen))
+            .add_systems(
+                OnEnter(GameState::InGame),
+                (despawn_ui_camera, spawn_in_game_screen),
+            )
             .add_systems(
                 Update,
                 (animate_background).run_if(in_state(GameState::InGame)),

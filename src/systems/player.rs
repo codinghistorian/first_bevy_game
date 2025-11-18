@@ -446,9 +446,7 @@ pub fn manage_charge_effect(
                     Mesh2d(meshes.add(Circle::new(40.0))),
                     MeshMaterial2d(materials.add(Color::srgba(1.0, 1.0, 0.0, 0.3))), // Yellow, semi-transparent
                     Transform::from_translation(player_transform.translation),
-                    ChargeEffect {
-                        player_entity,
-                    },
+                    ChargeEffect { player_entity },
                 ));
             }
         }
@@ -471,7 +469,14 @@ pub fn manage_charge_effect(
 pub fn animate_charge_effect(
     time: Res<Time>,
     player_query: Query<(&Transform, &ChargeShot), With<Player>>,
-    mut charge_effect_query: Query<(&ChargeEffect, &mut Transform, &mut MeshMaterial2d<ColorMaterial>), Without<Player>>,
+    mut charge_effect_query: Query<
+        (
+            &ChargeEffect,
+            &mut Transform,
+            &mut MeshMaterial2d<ColorMaterial>,
+        ),
+        Without<Player>,
+    >,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     for (charge_effect, mut effect_transform, mesh_material) in &mut charge_effect_query {
@@ -788,11 +793,7 @@ fn calculate_knockback_direction(
 
 /// System to handle player-boss collision (player takes damage)
 pub fn player_boss_collision(
-    time: Res<Time>,
-    mut player_query: Query<
-        (Entity, &Transform, &mut Hp, Option<&mut Invincibility>),
-        With<Player>,
-    >,
+    mut player_query: Query<(Entity, &Transform, &mut Hp, Option<&Invincibility>), With<Player>>,
     boss_query: Query<&Transform, With<Boss>>,
     mut commands: Commands,
     player_upgrades: Option<Res<PlayerUpgrades>>,
@@ -808,22 +809,7 @@ pub fn player_boss_collision(
     let DAMAGE = crate::systems::config::BOSS_COLLISION_DAMAGE * defense_multiplier;
 
     for (player_entity, player_transform, mut player_hp, invincibility) in &mut player_query {
-        // Check if player is invincible
-        let is_invincible = if let Some(mut inv) = invincibility {
-            inv.timer -= time.delta_secs();
-            if inv.timer > 0.0 {
-                true
-            } else {
-                commands.entity(player_entity).remove::<Invincibility>();
-                // Restore visibility when invincibility ends
-                commands.entity(player_entity).insert(Visibility::Visible);
-                false
-            }
-        } else {
-            false
-        };
-
-        if is_invincible {
+        if invincibility.is_some() {
             continue;
         }
 
@@ -919,7 +905,6 @@ pub fn apply_boss_knockback(
 
 /// System to handle projectile-boss collision (boss takes damage, projectile despawns)
 pub fn projectile_boss_collision(
-    time: Res<Time>,
     mut commands: Commands,
     projectile_query: Query<
         (Entity, &Transform, &Projectile),
@@ -930,7 +915,7 @@ pub fn projectile_boss_collision(
             Without<crate::systems::boss::BossProjectile>,
         ),
     >,
-    mut boss_query: Query<(Entity, &Transform, &mut Hp, Option<&mut Invincibility>), With<Boss>>,
+    mut boss_query: Query<(Entity, &Transform, &mut Hp, Option<&Invincibility>), With<Boss>>,
 ) {
     const BASE_PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
     const BOSS_SIZE: Vec2 = Vec2::new(32.0, 64.0);
@@ -941,22 +926,7 @@ pub fn projectile_boss_collision(
         let projectile_size = BASE_PROJECTILE_SIZE * charge_multiplier;
 
         for (boss_entity, boss_transform, mut boss_hp, invincibility) in &mut boss_query {
-            // Check if boss is invincible
-            let is_invincible = if let Some(mut inv) = invincibility {
-                inv.timer -= time.delta_secs();
-                if inv.timer > 0.0 {
-                    true
-                } else {
-                    commands.entity(boss_entity).remove::<Invincibility>();
-                    // Restore visibility when invincibility ends
-                    commands.entity(boss_entity).insert(Visibility::Visible);
-                    false
-                }
-            } else {
-                false
-            };
-
-            if is_invincible {
+            if invincibility.is_some() {
                 continue;
             }
 
@@ -968,10 +938,12 @@ pub fn projectile_boss_collision(
             ) {
                 // Calculate damage based on charge level
                 // Base damage for uncharged shots, multiplied for charged shots
-                let is_charged_shot = projectile.charge_level >= CHARGE_SHOT_MIN_TIME / CHARGE_SHOT_MAX_TIME;
+                let is_charged_shot =
+                    projectile.charge_level >= CHARGE_SHOT_MIN_TIME / CHARGE_SHOT_MAX_TIME;
                 let damage = if is_charged_shot {
                     // Charged shot: damage scales with charge level
-                    let damage_multiplier = 1.0 + (projectile.charge_level * (CHARGE_SHOT_DAMAGE_MULTIPLIER - 1.0));
+                    let damage_multiplier =
+                        1.0 + (projectile.charge_level * (CHARGE_SHOT_DAMAGE_MULTIPLIER - 1.0));
                     PLAYER_PROJECTILE_DAMAGE * damage_multiplier
                 } else {
                     // Normal shot: base damage
@@ -1045,6 +1017,26 @@ pub fn check_game_outcome(
             // Always transition to GameWin screen
             // The handle_stage_progression system will check if we should continue to next stage
             next_state.set(GameState::GameWin);
+        }
+    }
+}
+
+/// System to decrement invincibility timers and clean up when they expire
+pub fn update_invincibility_timers(
+    time: Res<Time>,
+    mut commands: Commands,
+    mut query: Query<(Entity, &mut Invincibility, Option<&mut Visibility>)>,
+) {
+    for (entity, mut invincibility, visibility) in &mut query {
+        invincibility.timer -= time.delta_secs();
+        if invincibility.timer <= 0.0 {
+            commands.entity(entity).remove::<Invincibility>();
+
+            if let Some(mut visibility) = visibility {
+                *visibility = Visibility::Visible;
+            } else {
+                commands.entity(entity).insert(Visibility::Visible);
+            }
         }
     }
 }

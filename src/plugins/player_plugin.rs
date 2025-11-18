@@ -1,15 +1,22 @@
 use crate::components::boss::{Boss, BossHealthBarContainer, BossRegistry};
-use crate::components::player::{BoundaryWall, ChargeEffect, Floor, HealthBar, HealthBarBackground, HealthBarMask, Player, Projectile};
-use crate::stages::game_menu::{BackgroundImage, CurrentStage, GameState, PlayerUpgrades, despawn_screen};
+use crate::components::player::{
+    BoundaryWall, ChargeEffect, Floor, HealthBar, HealthBarBackground, HealthBarMask, Player,
+    Projectile,
+};
+use crate::stages::game_menu::{
+    BackgroundImage, CurrentStage, GameState, PlayerUpgrades, despawn_screen,
+};
 use crate::systems::boss::{
     BossPatternRegistry, BossProjectile, boss_attacks, boss_movement, boss_projectile_movement,
     boss_projectile_player_collision, load_stage_boss_pattern, setup_boss_hp_bar,
 };
 use crate::systems::boundaries::spawn_boundaries;
 use crate::systems::player::{
-    animate_charge_effect, apply_boss_knockback, apply_knockback, change_health, check_game_outcome, invincibility_blink, manage_charge_effect,
-    persist_player_hp, player_boss_collision, player_movement, player_shooting, projectile_boss_collision,
-    projectile_movement, setup_player_hp_bar, spawn_boss, spawn_player_and_level, update_health_bars,
+    animate_charge_effect, apply_boss_knockback, apply_knockback, change_health,
+    check_game_outcome, invincibility_blink, manage_charge_effect, persist_player_hp,
+    player_boss_collision, player_movement, player_shooting, projectile_boss_collision,
+    projectile_movement, setup_player_hp_bar, spawn_boss, spawn_player_and_level,
+    update_health_bars, update_invincibility_timers,
 };
 use bevy::prelude::*;
 
@@ -54,15 +61,20 @@ impl Plugin for PlayerPlugin {
                     manage_charge_effect.after(player_shooting), // Manage charge effect spawn/despawn
                     animate_charge_effect.after(manage_charge_effect), // Animate charge effect
                     projectile_movement,
-                    boss_movement,            // Boss movement system
+                    boss_movement,                             // Boss movement system
                     apply_boss_knockback.after(boss_movement), // Apply boss knockback after boss movement
-                    boss_attacks,             // Boss attack system
-                    boss_projectile_movement, // Boss projectile movement
+                    boss_attacks,                              // Boss attack system
+                    boss_projectile_movement,                  // Boss projectile movement
                     boss_projectile_player_collision.after(boss_projectile_movement), // Boss projectile hits player (after movement)
                     player_boss_collision,
                     projectile_boss_collision,
-                    invincibility_blink.after(player_boss_collision).after(projectile_boss_collision).after(boss_projectile_player_collision), // Blink invincible entities
-                    persist_player_hp, // Persist player HP to upgrades resource
+                    update_invincibility_timers,
+                    invincibility_blink
+                        .after(update_invincibility_timers)
+                        .after(player_boss_collision)
+                        .after(projectile_boss_collision)
+                        .after(boss_projectile_player_collision), // Blink invincible entities
+                    persist_player_hp,  // Persist player HP to upgrades resource
                     check_game_outcome, // Check for win/lose conditions
                     update_health_bars,
                     change_health,
