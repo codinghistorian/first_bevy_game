@@ -39,6 +39,8 @@ pub struct PlayerVelocity {
     pub can_wall_jump: bool,
     pub wall_jump_velocity: f32,
     pub has_wall_jumped: bool,
+    pub wall_detach_timer: f32,
+    pub last_wall_side: Option<WallSide>,
 }
 
 /// Component to track jump charging (hold duration)

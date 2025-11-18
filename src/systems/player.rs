@@ -59,6 +59,8 @@ pub fn spawn_player_and_level(
             can_wall_jump: false,
             wall_jump_velocity: 0.0,
             has_wall_jumped: false,
+            wall_detach_timer: 0.0,
+            last_wall_side: None,
         },
         JumpCharge {
             timer: 0.0,
@@ -173,9 +175,17 @@ pub fn player_movement(
     const WALL_JUMP_STRENGTH: f32 = 520.0;
     const WALL_JUMP_HORIZONTAL_SPEED: f32 = 250.0;
     const WALL_JUMP_HORIZONTAL_PUSH_DISTANCE: f32 = 20.0;
+    const WALL_DETACH_DURATION: f32 = 0.35;
 
     for (entity, mut transform, mut velocity, mut jump_charge, dash, knockback) in &mut player_query
     {
+        if velocity.wall_detach_timer > 0.0 {
+            velocity.wall_detach_timer = (velocity.wall_detach_timer - time.delta_secs()).max(0.0);
+            if velocity.wall_detach_timer == 0.0 {
+                velocity.last_wall_side = None;
+            }
+        }
+
         // Movement
         let mut direction = Vec2::ZERO;
 
@@ -192,6 +202,24 @@ pub fn player_movement(
         // if keyboard_input.pressed(KeyCode::ArrowDown) {
         //     direction.y -= 1.0;
         // }
+
+        if velocity.wall_detach_timer > 0.0 {
+            if let Some(side) = velocity.last_wall_side {
+                let moving_toward_wall = match side {
+                    WallSide::Left => direction.x < 0.0,
+                    WallSide::Right => direction.x > 0.0,
+                };
+
+                let away_dir = match side {
+                    WallSide::Left => 1.0,
+                    WallSide::Right => -1.0,
+                };
+
+                if moving_toward_wall || direction.x.abs() < f32::EPSILON {
+                    direction.x = away_dir;
+                }
+            }
+        }
 
         if direction != Vec2::ZERO {
             velocity.facing_direction = direction.normalize();
@@ -245,6 +273,8 @@ pub fn player_movement(
             velocity.can_wall_jump = false;
             velocity.wall_jump_velocity = 0.0;
             velocity.has_wall_jumped = false;
+            velocity.wall_detach_timer = 0.0;
+            velocity.last_wall_side = None;
         } else if touching_left_wall || touching_right_wall {
             let side = if touching_left_wall {
                 WallSide::Left
@@ -252,13 +282,18 @@ pub fn player_movement(
                 WallSide::Right
             };
 
-            if velocity.wall_slide != Some(side) {
-                velocity.wall_slide = Some(side);
-                velocity.can_wall_jump = !velocity.has_wall_jumped;
-            }
+            if velocity.has_wall_jumped {
+                velocity.wall_slide = None;
+                velocity.can_wall_jump = false;
+            } else {
+                if velocity.wall_slide != Some(side) {
+                    velocity.wall_slide = Some(side);
+                    velocity.can_wall_jump = true;
+                }
 
-            if velocity.y < WALL_SLIDE_MAX_DESCENT {
-                velocity.y = WALL_SLIDE_MAX_DESCENT;
+                if velocity.y < WALL_SLIDE_MAX_DESCENT {
+                    velocity.y = WALL_SLIDE_MAX_DESCENT;
+                }
             }
         } else if velocity.wall_slide.is_some() {
             velocity.wall_slide = None;
@@ -271,15 +306,16 @@ pub fn player_movement(
                 if velocity.can_wall_jump {
                     wall_jump_triggered = true;
                     let horizontal_dir = if side == WallSide::Left { 1.0 } else { -1.0 };
-                    let wallward_dir = -horizontal_dir;
                     velocity.y = WALL_JUMP_STRENGTH;
                     velocity.jump_type = JumpType::High;
                     velocity.wall_slide = None;
                     velocity.can_wall_jump = false;
                     velocity.has_wall_jumped = true;
-                    velocity.facing_direction = Vec2::new(wallward_dir, 0.0);
-                    velocity.wall_jump_velocity = wallward_dir * WALL_JUMP_HORIZONTAL_SPEED;
-                    transform.translation.x += wallward_dir * WALL_JUMP_HORIZONTAL_PUSH_DISTANCE;
+                    velocity.wall_detach_timer = WALL_DETACH_DURATION;
+                    velocity.last_wall_side = Some(side);
+                    velocity.facing_direction = Vec2::new(horizontal_dir, 0.0);
+                    velocity.wall_jump_velocity = horizontal_dir * WALL_JUMP_HORIZONTAL_SPEED;
+                    transform.translation.x += horizontal_dir * WALL_JUMP_HORIZONTAL_PUSH_DISTANCE;
                     transform.translation.x =
                         transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
                 }
