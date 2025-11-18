@@ -37,6 +37,8 @@ pub struct PlayerVelocity {
     pub facing_direction: Vec2,
     pub wall_slide: Option<WallSide>,
     pub can_wall_jump: bool,
+    pub wall_jump_velocity: f32,
+    pub has_wall_jumped: bool,
 }
 
 /// Component to track jump charging (hold duration)

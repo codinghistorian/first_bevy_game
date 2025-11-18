@@ -57,6 +57,8 @@ pub fn spawn_player_and_level(
             facing_direction: Vec2::new(1.0, 0.0),
             wall_slide: None,
             can_wall_jump: false,
+            wall_jump_velocity: 0.0,
+            has_wall_jumped: false,
         },
         JumpCharge {
             timer: 0.0,
@@ -169,7 +171,8 @@ pub fn player_movement(
     const WALL_DETECT_TOLERANCE: f32 = 1.0;
     const WALL_SLIDE_MAX_DESCENT: f32 = -200.0;
     const WALL_JUMP_STRENGTH: f32 = 520.0;
-    const WALL_JUMP_HORIZONTAL_PUSH: f32 = 12.0;
+    const WALL_JUMP_HORIZONTAL_SPEED: f32 = 250.0;
+    const WALL_JUMP_HORIZONTAL_PUSH_DISTANCE: f32 = 20.0;
 
     for (entity, mut transform, mut velocity, mut jump_charge, dash, knockback) in &mut player_query
     {
@@ -214,6 +217,17 @@ pub fn player_movement(
         transform.translation.x = transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
         transform.translation.y = transform.translation.y.clamp(BOUNDARY_BOTTOM, BOUNDARY_TOP);
 
+        if velocity.wall_jump_velocity.abs() > f32::EPSILON {
+            transform.translation.x += velocity.wall_jump_velocity * time.delta_secs();
+            // Apply damping to create an arc-like motion
+            let damping = 5.0 * time.delta_secs();
+            velocity.wall_jump_velocity -= velocity.wall_jump_velocity * damping;
+            if velocity.wall_jump_velocity.abs() < 1.0 {
+                velocity.wall_jump_velocity = 0.0;
+            }
+            transform.translation.x = transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
+        }
+
         // Check if jump button is pressed (Space, or X)
         let jump_button_pressed =
             keyboard_input.pressed(KeyCode::Space) || keyboard_input.pressed(KeyCode::KeyX);
@@ -229,6 +243,8 @@ pub fn player_movement(
         if is_on_ground {
             velocity.wall_slide = None;
             velocity.can_wall_jump = false;
+            velocity.wall_jump_velocity = 0.0;
+            velocity.has_wall_jumped = false;
         } else if touching_left_wall || touching_right_wall {
             let side = if touching_left_wall {
                 WallSide::Left
@@ -238,7 +254,7 @@ pub fn player_movement(
 
             if velocity.wall_slide != Some(side) {
                 velocity.wall_slide = Some(side);
-                velocity.can_wall_jump = true;
+                velocity.can_wall_jump = !velocity.has_wall_jumped;
             }
 
             if velocity.y < WALL_SLIDE_MAX_DESCENT {
@@ -255,12 +271,17 @@ pub fn player_movement(
                 if velocity.can_wall_jump {
                     wall_jump_triggered = true;
                     let horizontal_dir = if side == WallSide::Left { 1.0 } else { -1.0 };
+                    let wallward_dir = -horizontal_dir;
                     velocity.y = WALL_JUMP_STRENGTH;
                     velocity.jump_type = JumpType::High;
                     velocity.wall_slide = None;
                     velocity.can_wall_jump = false;
-                    velocity.facing_direction = Vec2::new(horizontal_dir, 0.0);
-                    transform.translation.x += horizontal_dir * WALL_JUMP_HORIZONTAL_PUSH;
+                    velocity.has_wall_jumped = true;
+                    velocity.facing_direction = Vec2::new(wallward_dir, 0.0);
+                    velocity.wall_jump_velocity = wallward_dir * WALL_JUMP_HORIZONTAL_SPEED;
+                    transform.translation.x += wallward_dir * WALL_JUMP_HORIZONTAL_PUSH_DISTANCE;
+                    transform.translation.x =
+                        transform.translation.x.clamp(BOUNDARY_LEFT, BOUNDARY_RIGHT);
                 }
             }
         }
