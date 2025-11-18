@@ -543,6 +543,8 @@ pub fn boss_projectile_player_collision(
                     true
                 } else {
                     commands.entity(player_entity).remove::<Invincibility>();
+                    // Restore visibility when invincibility ends
+                    commands.entity(player_entity).insert(Visibility::Visible);
                     false
                 }
             } else {

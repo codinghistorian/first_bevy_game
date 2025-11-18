@@ -1,5 +1,5 @@
 use crate::components::boss::*;
-use crate::components::player::{ChargeEffect, ChargeShot, *};
+use crate::components::player::{ChargeEffect, ChargeShot, ProjectileHasHit, *};
 use crate::stages::game_menu::PlayerUpgrades;
 use crate::stages::game_menu::{DefeatedBoss, GameState, SelectedCharacter};
 use crate::systems::config::{
@@ -815,6 +815,8 @@ pub fn player_boss_collision(
                 true
             } else {
                 commands.entity(player_entity).remove::<Invincibility>();
+                // Restore visibility when invincibility ends
+                commands.entity(player_entity).insert(Visibility::Visible);
                 false
             }
         } else {
@@ -917,6 +919,7 @@ pub fn apply_boss_knockback(
 
 /// System to handle projectile-boss collision (boss takes damage, projectile despawns)
 pub fn projectile_boss_collision(
+    time: Res<Time>,
     mut commands: Commands,
     projectile_query: Query<
         (Entity, &Transform, &Projectile),
@@ -927,7 +930,7 @@ pub fn projectile_boss_collision(
             Without<crate::systems::boss::BossProjectile>,
         ),
     >,
-    mut boss_query: Query<(Entity, &Transform, &mut Hp), With<Boss>>,
+    mut boss_query: Query<(Entity, &Transform, &mut Hp, Option<&mut Invincibility>), With<Boss>>,
 ) {
     const BASE_PROJECTILE_SIZE: Vec2 = Vec2::new(10.0, 10.0);
     const BOSS_SIZE: Vec2 = Vec2::new(32.0, 64.0);
@@ -937,7 +940,26 @@ pub fn projectile_boss_collision(
         let charge_multiplier = 1.0 + (projectile.charge_level * 1.5);
         let projectile_size = BASE_PROJECTILE_SIZE * charge_multiplier;
 
-        for (boss_entity, boss_transform, mut boss_hp) in &mut boss_query {
+        for (boss_entity, boss_transform, mut boss_hp, invincibility) in &mut boss_query {
+            // Check if boss is invincible
+            let is_invincible = if let Some(mut inv) = invincibility {
+                inv.timer -= time.delta_secs();
+                if inv.timer > 0.0 {
+                    true
+                } else {
+                    commands.entity(boss_entity).remove::<Invincibility>();
+                    // Restore visibility when invincibility ends
+                    commands.entity(boss_entity).insert(Visibility::Visible);
+                    false
+                }
+            } else {
+                false
+            };
+
+            if is_invincible {
+                continue;
+            }
+
             if check_aabb_collision(
                 projectile_transform.translation,
                 projectile_size,
@@ -958,6 +980,11 @@ pub fn projectile_boss_collision(
 
                 // Boss takes damage
                 boss_hp.current = (boss_hp.current - damage).max(0.0);
+
+                // Add invincibility frames
+                commands.entity(boss_entity).insert(Invincibility {
+                    timer: INVINCIBILITY_DURATION,
+                });
 
                 // Apply knockback to boss if hit by charged shot
                 if is_charged_shot {
@@ -1018,6 +1045,36 @@ pub fn check_game_outcome(
             // Always transition to GameWin screen
             // The handle_stage_progression system will check if we should continue to next stage
             next_state.set(GameState::GameWin);
+        }
+    }
+}
+
+/// System to make invincible entities blink (toggle visibility)
+/// This provides visual feedback that invincibility frames are active
+pub fn invincibility_blink(
+    mut commands: Commands,
+    mut invincible_query: Query<(Entity, &Invincibility, Option<&mut Visibility>)>,
+) {
+    const BLINK_RATE: f32 = 0.1; // Toggle visibility every 0.1 seconds
+
+    for (entity, invincibility, visibility) in &mut invincible_query {
+        // Calculate blink state based on invincibility timer
+        let blink_cycle = (INVINCIBILITY_DURATION - invincibility.timer) / BLINK_RATE;
+        let is_visible = (blink_cycle as i32) % 2 == 0;
+
+        if let Some(mut visibility) = visibility {
+            *visibility = if is_visible {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            };
+        } else {
+            // Ensure Visibility component exists
+            commands.entity(entity).insert(if is_visible {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            });
         }
     }
 }
