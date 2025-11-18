@@ -417,6 +417,14 @@ pub fn player_shooting(
 
         // Helper function to determine shooting direction
         let get_shoot_direction = || -> Option<Vec2> {
+            // Wall slide shooting overrides other directions
+            if let Some(wall_side) = player_velocity.wall_slide {
+                return match wall_side {
+                    WallSide::Left => Some(Vec2::X),  // Shoot right
+                    WallSide::Right => Some(-Vec2::X), // Shoot left
+                };
+            }
+
             let shoot_direction;
             // Prioritize vertical over horizontal if both are pressed
             if player_velocity.facing_direction.y > 0.0 {
