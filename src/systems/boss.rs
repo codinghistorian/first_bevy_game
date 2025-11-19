@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 /// JSON structure for boss attack patterns
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BossPatternConfig {
+    #[serde(default)]
+    pub hp: Option<f32>,
     pub attack: AttackPatternConfig,
     pub movement: MovementPatternConfig,
 }

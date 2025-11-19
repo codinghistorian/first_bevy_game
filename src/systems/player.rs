@@ -101,6 +101,8 @@ pub fn spawn_boss(
         .cloned()
         .unwrap_or_else(|| BossData::default());
 
+    let mut boss_hp = 200.0;
+
     // Try to load pattern from JSON based on stage number
     if let (Some(registry), Some(stage)) = (pattern_registry.as_ref(), current_stage.as_ref()) {
         let stage_num = stage.0;
@@ -110,6 +112,9 @@ pub fn spawn_boss(
             // Convert JSON patterns to internal patterns
             boss_data.attack_pattern = convert_attack_pattern(&pattern_config.attack);
             boss_data.movement_pattern = convert_movement_pattern(&pattern_config.movement);
+            if let Some(pattern_hp) = pattern_config.hp {
+                boss_hp = pattern_hp.max(1.0);
+            }
         }
     }
 
@@ -123,8 +128,8 @@ pub fn spawn_boss(
         boss_data.boss_type,
         boss_data.clone(),
         Hp {
-            current: 200.0,
-            max: 200.0,
+            current: boss_hp,
+            max: boss_hp,
         },
         BossAttackState::default(),
         BossMovementState::default(),

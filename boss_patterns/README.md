@@ -8,6 +8,7 @@ Each JSON file should follow this structure:
 
 ```json
 {
+  "hp": 200.0,
   "attack": {
     "type": "SingleShot",
     "cooldown": 1.5,
@@ -21,6 +22,12 @@ Each JSON file should follow this structure:
   }
 }
 ```
+
+### Top-Level Fields
+
+- `hp` *(optional, default 200)*: Total boss health. Use this to scale difficulty per stage.
+- `attack`: Attack pattern configuration (see below).
+- `movement`: Movement pattern configuration (see below).
 
 ## Attack Pattern Types
 

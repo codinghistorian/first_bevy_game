@@ -1,4 +1,5 @@
 {
+  "hp": 200.0,
   "attack": {
     "type": "SingleShot",
     "cooldown": 1.5,
