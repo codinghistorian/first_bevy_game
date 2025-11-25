@@ -12,6 +12,7 @@ use bevy::{
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States, Component)]
 pub enum GameState {
     #[default]
+    OpeningCrawl,
     CharacterSelection,
     InGame,
     StageUpgrade, // Intermediate stage between bosses for upgrades
@@ -58,6 +59,24 @@ pub struct GameWinScreen;
 /// Marker component for the stage upgrade screen UI root
 #[derive(Component)]
 pub struct StageUpgradeScreen;
+
+/// Marker component for the opening crawl screen
+#[derive(Component)]
+pub struct OpeningCrawlScreen;
+
+/// Component for crawl text that scrolls upward
+#[derive(Component)]
+pub struct CrawlText;
+
+/// Component for the text container that scrolls
+#[derive(Component)]
+pub struct CrawlTextContainer {
+    pub scroll_position: f32,
+}
+
+/// Component for star sprites in the background
+#[derive(Component)]
+pub struct Star;
 
 /// Resource to track the current stage number (1-indexed)
 #[derive(Resource, Default)]
@@ -906,6 +925,151 @@ pub fn handle_stage_progression(
     }
 }
 
+/// Spawns the opening crawl screen with space background and scrolling text
+pub fn spawn_opening_crawl(mut commands: Commands) {
+    // Set black background
+    commands.insert_resource(ClearColor(Color::srgb(0.0, 0.0, 0.0)));
+
+    // Spawn a 2D camera for the stars (renders before UI camera)
+    commands.spawn((
+        Camera2d,
+        Camera {
+            order: 0, // Renders first (background)
+            ..default()
+        },
+        Transform::default(),
+        GlobalTransform::default(),
+    ));
+
+    // Spawn stars in the background using a simple approach
+    // We'll use a pseudo-random approach based on index
+    for i in 0..200 {
+        // Simple pseudo-random using index
+        let seed = i as f32 * 12.9898;
+        let x = (seed.sin() * 10000.0).fract() * 2000.0 - 1000.0;
+        let y = (seed.cos() * 10000.0).fract() * 2000.0 - 1000.0;
+        let size_seed = i as f32 * 7.1234;
+        let size = (size_seed.sin() * 10000.0).fract() * 2.0 + 0.5;
+        let brightness_seed = i as f32 * 3.4567;
+        let brightness = (brightness_seed.sin() * 10000.0).fract() * 0.5 + 0.5;
+
+        commands.spawn((
+            Sprite {
+                color: Color::srgb(brightness, brightness, brightness),
+                custom_size: Some(Vec2::new(size, size)),
+                ..default()
+            },
+            Transform::from_xyz(x, y, -5.0),
+            GlobalTransform::default(),
+            Visibility::Visible,
+            InheritedVisibility::default(),
+            ViewVisibility::default(),
+            Star,
+        ));
+    }
+
+    // The opening text (with grammar fixes)
+    let opening_text = "The Breadman was working in his Bakery, shouting at other bakers and clerks as usual. He thought of himself as the best baker in the country, therefore lots of breads were being thrown away if they didn't meet his satisfaction. He always refused to give the ugly breads to the poor either, since he considered his bread as a form of art and arts shouldn't be thrown away to the poor ass bitches.";
+
+    // Format text with line breaks for better readability
+    let formatted_text = opening_text
+        .split(". ")
+        .map(|s| if s.ends_with('.') { s.to_string() } else { format!("{}.", s) })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    
+    // Create the root container for the crawl screen
+    commands
+        .spawn((
+            Node {
+                width: percent(100.0),
+                height: percent(100.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::FlexStart,
+                align_items: AlignItems::Center,
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            OpeningCrawlScreen,
+        ))
+        .with_children(|parent| {
+            // Create a container for the scrolling text positioned below the screen
+            parent
+                .spawn((
+                    Node {
+                        width: px(800.0),
+                        height: px(2000.0), // Extra height to allow scrolling
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::FlexStart,
+                        align_items: AlignItems::Center,
+                        padding: UiRect::all(px(20.0)),
+                        position_type: PositionType::Absolute,
+                        top: Val::Px(-600.0), // Start below screen
+                        left: Val::Percent(50.0),
+                        ..default()
+                    },
+                    CrawlTextContainer {
+                        scroll_position: -600.0,
+                    },
+                ))
+                .with_children(|text_parent| {
+                    // Add the text with proper formatting
+                    text_parent.spawn((
+                        Text::new(formatted_text),
+                        TextFont {
+                            font_size: 36.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgb(1.0, 0.9, 0.0)), // Yellow/gold color like Star Wars
+                        CrawlText,
+                    ));
+                });
+        });
+}
+
+/// Animates the crawl text scrolling upward
+pub fn animate_crawl_text(
+    time: Res<Time>,
+    mut text_container_query: Query<(&mut CrawlTextContainer, &mut Node)>,
+) {
+    // Scroll speed (pixels per second)
+    let scroll_speed = 60.0;
+    
+    // Move the text container upward to create scrolling effect
+    for (mut container, mut node) in text_container_query.iter_mut() {
+        container.scroll_position += scroll_speed * time.delta_secs();
+        node.top = Val::Px(container.scroll_position);
+    }
+}
+
+/// Handles input for the opening crawl (skip with any key or auto-transition after duration)
+pub fn handle_opening_crawl_input(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    mut timer: Local<Option<f32>>,
+    time: Res<Time>,
+    text_container_query: Query<&CrawlTextContainer>,
+) {
+    // Auto-transition after 30 seconds
+    let auto_transition_time = 30.0;
+    
+    let elapsed = timer.get_or_insert(0.0);
+    *elapsed += time.delta_secs();
+    
+    // Check if text has scrolled far enough (or skip with any key)
+    let text_scrolled = text_container_query.iter().any(|container| container.scroll_position > 1500.0);
+    let key_pressed = keyboard_input.just_pressed(KeyCode::Enter)
+        || keyboard_input.just_pressed(KeyCode::Space)
+        || keyboard_input.just_pressed(KeyCode::Escape);
+    let should_transition = key_pressed
+        || *elapsed >= auto_transition_time
+        || text_scrolled;
+    
+    if should_transition {
+        next_state.set(GameState::CharacterSelection);
+    }
+}
+
 pub struct GameMenuPlugin;
 
 impl Plugin for GameMenuPlugin {
@@ -920,6 +1084,35 @@ impl Plugin for GameMenuPlugin {
             .add_systems(
                 Update,
                 filter_loaded_background_images.run_if(resource_exists::<BackgroundImages>),
+            )
+            .add_systems(
+                OnEnter(GameState::OpeningCrawl),
+                spawn_opening_crawl,
+            )
+            .add_systems(
+                Update,
+                (
+                    animate_crawl_text.run_if(in_state(GameState::OpeningCrawl)),
+                    handle_opening_crawl_input.run_if(in_state(GameState::OpeningCrawl)),
+                ),
+            )
+            .add_systems(
+                OnExit(GameState::OpeningCrawl),
+                (
+                    despawn_screen::<OpeningCrawlScreen>,
+                    |mut commands: Commands, 
+                     star_query: Query<Entity, With<Star>>,
+                     camera_query: Query<Entity, (With<Camera2d>, Without<UiCamera>)>| {
+                        // Despawn all stars
+                        for star_entity in star_query.iter() {
+                            commands.entity(star_entity).despawn();
+                        }
+                        // Despawn the 2D camera used for stars
+                        for camera_entity in camera_query.iter() {
+                            commands.entity(camera_entity).despawn();
+                        }
+                    },
+                ),
             )
             .add_systems(
                 OnEnter(GameState::CharacterSelection),
