@@ -95,6 +95,7 @@ pub struct ProjectileHasHit;
 #[derive(Component)]
 pub struct Shooting {
     pub timer: f32,
+    pub is_charging: bool, // Added to track charging state within Shooting if needed, or separate
 }
 
 /// Component to track charge shot charging state
@@ -121,4 +122,31 @@ pub struct Invincibility {
 pub struct Knockback {
     pub velocity: Vec2,
     pub timer: f32,
+}
+
+// --- Animation Components ---
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Component)]
+pub enum AnimationState {
+    Idle,
+    Run,
+    Jump,
+    Shoot, // Optional, if we have shooting frames
+}
+
+#[derive(Component)]
+pub struct AnimationIndices {
+    pub first: usize,
+    pub last: usize,
+}
+
+#[derive(Component, Deref, DerefMut)]
+pub struct AnimationTimer(pub Timer);
+
+#[derive(Component)]
+pub struct PlayerAnimationConfig {
+    pub idle: AnimationIndices,
+    pub run: AnimationIndices,
+    pub jump: AnimationIndices,
+    // We can add more later like 'shoot', 'climb', etc.
 }

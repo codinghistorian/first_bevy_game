@@ -12,7 +12,7 @@ use crate::systems::boss::{
 };
 use crate::systems::boundaries::spawn_boundaries;
 use crate::systems::player::{
-    animate_charge_effect, apply_boss_knockback, apply_knockback, change_health,
+    animate_charge_effect, animate_sprite, apply_boss_knockback, apply_knockback, change_health,
     check_game_outcome, invincibility_blink, manage_charge_effect, persist_player_hp,
     player_boss_collision, player_movement, player_shooting, projectile_boss_collision,
     projectile_movement, setup_player_hp_bar, spawn_boss, spawn_player_and_level,
@@ -56,6 +56,7 @@ impl Plugin for PlayerPlugin {
                 Update,
                 (
                     player_movement,
+                    animate_sprite.after(player_movement), // Animate sprite based on state set in movement
                     apply_knockback.after(player_movement), // Apply knockback after normal movement
                     player_shooting,
                     manage_charge_effect.after(player_shooting), // Manage charge effect spawn/despawn

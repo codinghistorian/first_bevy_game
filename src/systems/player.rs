@@ -17,6 +17,8 @@ pub fn spawn_player_and_level(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     selected_character: Res<SelectedCharacter>,
     player_upgrades: Option<Res<PlayerUpgrades>>,
 ) {
@@ -40,13 +42,8 @@ pub fn spawn_player_and_level(
         .map(|u| u.current_hp.min(max_hp)) // Ensure current HP doesn't exceed new max HP
         .unwrap_or(max_hp);
 
-    // Spawn the player character as a rectangle
-    // Floor top is at y = -230 (floor center -250 + half-height 20)
-    // Character center should be at floor top + character half-height = -230 + 32 = -198
-    commands.spawn((
-        Mesh2d(meshes.add(Rectangle::new(32.0, 64.0))), // 32x64 rectangle
-        MeshMaterial2d(materials.add(character_color)),
-        Transform::from_xyz(0.0, -198.0, 1.0), // Positioned on top of the floor
+    // Common player components
+    let player_components = (
         Player,
         Hp {
             current: current_hp, // Start with preserved HP or full HP
@@ -67,12 +64,79 @@ pub fn spawn_player_and_level(
             timer: 0.0,
             is_charging: false,
         },
-        Shooting { timer: 0.0 },
+        Shooting {
+            timer: 0.0,
+            is_charging: false,
+        },
         ChargeShot {
             timer: 0.0,
             is_charging: false,
         },
-    ));
+    );
+
+    // Spawn the player character
+    // Floor top is at y = -230 (floor center -250 + half-height 20)
+    // Character center should be at floor top + character half-height = -230 + 32 = -198
+    let start_transform = Transform::from_xyz(0.0, -198.0, 1.0);
+
+    if matches!(*selected_character, SelectedCharacter::Breadman) {
+        // Use sprite sheet for Breadman
+        let texture_handle = asset_server.load("images/breadman/megaman_sheet.png");
+        
+        // Create a custom layout since the sprite sheet is not a uniform grid
+        // The image is 349x381, so we use that as the total size
+        let mut layout = TextureAtlasLayout::new_empty(UVec2::new(349, 381));
+
+        // --- DEFINE SPRITE COORDINATES HERE ---
+        // TODO: You must measure your sprites in the PNG and put the exact coordinates here.
+        // Format: URect::new(left_x, top_y, right_x, bottom_y)
+        
+        // 1. IDLE FRAME (Standing still)
+        let idle_idx = layout.add_texture(URect::new(10, 10, 42, 42)); // Placeholder coords
+
+        // 2. RUN FRAMES (Running animation)
+        // Add each frame of the run animation in order
+        let run_start = layout.add_texture(URect::new(50, 10, 82, 42)); // Run frame 1
+        let _         = layout.add_texture(URect::new(90, 10, 122, 42)); // Run frame 2
+        let run_end   = layout.add_texture(URect::new(130, 10, 162, 42)); // Run frame 3
+
+        // 3. JUMP FRAME
+        let jump_idx = layout.add_texture(URect::new(10, 50, 42, 82)); // Jump frame
+
+        let layout_handle = texture_atlas_layouts.add(layout);
+
+        // Define animation configuration using the indices we just created
+        let animation_config = PlayerAnimationConfig {
+            idle: AnimationIndices { first: idle_idx, last: idle_idx },
+            run: AnimationIndices { first: run_start, last: run_end },
+            jump: AnimationIndices { first: jump_idx, last: jump_idx },
+        };
+
+        commands.spawn((
+            Sprite {
+                image: texture_handle,
+                texture_atlas: Some(TextureAtlas {
+                    layout: layout_handle,
+                    index: animation_config.idle.first,
+                }),
+                custom_size: Some(Vec2::new(64.0, 64.0)), // Scale up to match hit box size approx
+                ..default()
+            },
+            start_transform,
+            player_components,
+            animation_config,
+            AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+            AnimationState::Idle,
+        ));
+    } else {
+        // Use rectangle for other characters (Cheeseman)
+        commands.spawn((
+            Mesh2d(meshes.add(Rectangle::new(32.0, 64.0))), // 32x64 rectangle
+            MeshMaterial2d(materials.add(character_color)),
+            start_transform,
+            player_components,
+        ));
+    }
 
     // Spawn the floor/platform at the bottom
     commands.spawn((
@@ -156,6 +220,8 @@ pub fn player_movement(
             &mut JumpCharge,
             Option<&mut Dash>,
             Option<&Knockback>,
+            Option<&mut AnimationState>,
+            Option<&mut Sprite>,
         ),
         With<Player>,
     >,
@@ -183,7 +249,7 @@ pub fn player_movement(
     const WALL_JUMP_HORIZONTAL_PUSH_DISTANCE: f32 = 20.0;
     const WALL_DETACH_DURATION: f32 = 0.35;
 
-    for (entity, mut transform, mut velocity, mut jump_charge, dash, knockback) in &mut player_query
+    for (entity, mut transform, mut velocity, mut jump_charge, dash, knockback, mut anim_state, mut sprite) in &mut player_query
     {
         if velocity.wall_detach_timer > 0.0 {
             velocity.wall_detach_timer = (velocity.wall_detach_timer - time.delta_secs()).max(0.0);
@@ -194,12 +260,15 @@ pub fn player_movement(
 
         // Movement
         let mut direction = Vec2::ZERO;
+        let mut is_moving = false;
 
         if keyboard_input.pressed(KeyCode::ArrowLeft) {
             direction.x -= 1.0;
+            is_moving = true;
         }
         if keyboard_input.pressed(KeyCode::ArrowRight) {
             direction.x += 1.0;
+            is_moving = true;
         }
         if keyboard_input.pressed(KeyCode::ArrowUp) {
             direction.y += 1.0;
@@ -229,6 +298,15 @@ pub fn player_movement(
 
         if direction != Vec2::ZERO {
             velocity.facing_direction = direction.normalize();
+        }
+
+        // Update Sprite Flip based on direction
+        if let Some(ref mut s) = sprite {
+            if velocity.facing_direction.x < 0.0 {
+                s.flip_x = true;
+            } else if velocity.facing_direction.x > 0.0 {
+                s.flip_x = false;
+            }
         }
 
         if let Some(mut dash) = dash {
@@ -396,6 +474,19 @@ pub fn player_movement(
             transform.translation.y = GROUND_Y;
             velocity.y = 0.0;
             velocity.jump_type = JumpType::None; // Reset jump type when landing
+        }
+
+        // --- Animation State Logic ---
+        if let Some(mut state) = anim_state {
+            if is_on_ground {
+                if is_moving {
+                    *state = AnimationState::Run;
+                } else {
+                    *state = AnimationState::Idle;
+                }
+            } else {
+                *state = AnimationState::Jump;
+            }
         }
     }
 }
@@ -1193,6 +1284,41 @@ pub fn invincibility_blink(
             } else {
                 Visibility::Hidden
             });
+        }
+    }
+}
+
+// --- Animation System ---
+
+pub fn animate_sprite(
+    time: Res<Time>,
+    mut query: Query<(
+        &mut AnimationTimer,
+        &mut Sprite,
+        &AnimationState,
+        &PlayerAnimationConfig,
+    )>,
+) {
+    for (mut timer, mut sprite, state, config) in &mut query {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            let indices = match state {
+                AnimationState::Idle => &config.idle,
+                AnimationState::Run => &config.run,
+                AnimationState::Jump => &config.jump,
+                _ => &config.idle,
+            };
+
+            if let Some(atlas) = &mut sprite.texture_atlas {
+                if atlas.index < indices.first || atlas.index > indices.last {
+                    atlas.index = indices.first;
+                } else {
+                    atlas.index += 1;
+                    if atlas.index > indices.last {
+                        atlas.index = indices.first;
+                    }
+                }
+            }
         }
     }
 }
