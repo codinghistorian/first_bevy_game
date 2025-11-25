@@ -6,7 +6,7 @@ use bevy::text::{Justify, LineBreak, TextLayout};
 use bevy::{
     color::palettes::basic::{BLACK, WHITE},
     prelude::*,
-    sprite::Anchor,
+    sprite::{Anchor, Text2d},
 };
 
 /// Game state to manage transitions between character selection and gameplay
@@ -931,10 +931,10 @@ pub fn spawn_opening_crawl(mut commands: Commands) {
     // Set black background
     commands.insert_resource(ClearColor(Color::srgb(0.0, 0.0, 0.0)));
 
-    // Spawn a 3D camera for the crawl effect (Perspective)
+    // Spawn a 2D camera for the crawl effect
     commands.spawn((
-        Camera3d::default(), // Use Camera3d which sets up perspective projection by default
-        Transform::from_xyz(0.0, 0.0, 150.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Camera2d::default(),
+        Transform::from_xyz(0.0, 0.0, 0.0),
         GlobalTransform::default(),
     ));
 
@@ -988,9 +988,9 @@ pub fn spawn_opening_crawl(mut commands: Commands) {
     }
     let formatted_text = wrapped_lines.join("\n\n");
     
-    // Spawn the text as a World object (not UI) with rotation
+    // Spawn the text as a 2D text object with rotation
     commands.spawn((
-        Text::new(formatted_text),
+        Text2d::new(formatted_text),
         TextFont {
             font_size: 48.0, // Larger font for world space
             ..default()
@@ -999,37 +999,27 @@ pub fn spawn_opening_crawl(mut commands: Commands) {
         TextLayout::new(Justify::Center, LineBreak::NoWrap),
         CrawlText,
         CrawlTextContainer {
-            scroll_position: -400.0, // Start below
+            scroll_position: 0.0,
         },
         OpeningCrawlScreen,
-        // Rotate around X axis to tilt it back
-        Transform::from_xyz(0.0, -400.0, 0.0)
-            .with_rotation(Quat::from_rotation_x(-50.0_f32.to_radians())),
-        GlobalTransform::default(),
+        // Position below screen initially
+        Transform::from_xyz(0.0, -400.0, 0.0),
         Visibility::Visible,
-        InheritedVisibility::default(),
-        ViewVisibility::default(),
     ));
 }
 
-/// Animates the crawl text scrolling upward in 3D space
+/// Animates the crawl text scrolling upward
 pub fn animate_crawl_text(
     time: Res<Time>,
     mut text_query: Query<(&mut CrawlTextContainer, &mut Transform), With<CrawlText>>,
 ) {
-    // Scroll speed
-    let scroll_speed = 30.0;
-    
+    const BASE_Y: f32 = -400.0;
+    const SCROLL_SPEED: f32 = 60.0;
+
     for (mut container, mut transform) in text_query.iter_mut() {
-        container.scroll_position += scroll_speed * time.delta_secs();
-        
-        // Move along the local Y axis (up and away due to rotation)
-        // We use the scroll position to determine the translation along the local Y
-        let up = transform.rotation * Vec3::Y;
-        
-        // Update position: Start at base and move up
-        // But simpler: just add speed to translation along local Y
-        transform.translation += up * scroll_speed * time.delta_secs();
+        container.scroll_position += SCROLL_SPEED * time.delta_secs();
+        let y_position = BASE_Y + container.scroll_position;
+        transform.translation.y = y_position;
     }
 }
 
@@ -1091,14 +1081,14 @@ impl Plugin for GameMenuPlugin {
                 OnExit(GameState::OpeningCrawl),
                 (
                     despawn_screen::<OpeningCrawlScreen>,
-                    |mut commands: Commands, 
+                    |mut commands: Commands,
                      star_query: Query<Entity, With<Star>>,
                      camera_query: Query<Entity, (With<Camera2d>, Without<UiCamera>)>| {
                         // Despawn all stars
                         for star_entity in star_query.iter() {
                             commands.entity(star_entity).despawn();
                         }
-                        // Despawn the 2D camera used for stars
+                        // Despawn the camera used for crawl
                         for camera_entity in camera_query.iter() {
                             commands.entity(camera_entity).despawn();
                         }
