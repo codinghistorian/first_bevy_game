@@ -1017,6 +1017,28 @@ pub fn spawn_opening_crawl(mut commands: Commands) {
         text_transform,
         Visibility::Visible,
     ));
+
+    // Spawn skip instruction text (UI)
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(20.0),
+                right: Val::Px(20.0),
+                ..default()
+            },
+            OpeningCrawlScreen,
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new("Press Enter to Skip"),
+                TextFont {
+                    font_size: 20.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.5, 0.5, 0.5)), // Grey color
+            ));
+        });
 }
 
 /// Animates the crawl text scrolling upward along the tilted plane
