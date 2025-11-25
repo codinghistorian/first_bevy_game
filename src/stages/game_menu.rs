@@ -2,6 +2,7 @@ use crate::systems::config::{
     BACKGROUND_PADDING, BOUNDARY_BOTTOM, BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP,
 };
 use bevy::text::prelude::{TextColor, TextFont};
+use bevy::text::{Justify, LineBreak, TextLayout};
 use bevy::{
     color::palettes::basic::{BLACK, WHITE},
     prelude::*,
@@ -930,26 +931,21 @@ pub fn spawn_opening_crawl(mut commands: Commands) {
     // Set black background
     commands.insert_resource(ClearColor(Color::srgb(0.0, 0.0, 0.0)));
 
-    // Spawn a 2D camera for the stars (renders before UI camera)
+    // Spawn a 3D camera for the crawl effect (Perspective)
     commands.spawn((
-        Camera2d,
-        Camera {
-            order: 0, // Renders first (background)
-            ..default()
-        },
-        Transform::default(),
+        Camera3d::default(), // Use Camera3d which sets up perspective projection by default
+        Transform::from_xyz(0.0, 0.0, 150.0).looking_at(Vec3::ZERO, Vec3::Y),
         GlobalTransform::default(),
     ));
 
-    // Spawn stars in the background using a simple approach
-    // We'll use a pseudo-random approach based on index
+    // Spawn stars in the background
     for i in 0..200 {
-        // Simple pseudo-random using index
         let seed = i as f32 * 12.9898;
-        let x = (seed.sin() * 10000.0).fract() * 2000.0 - 1000.0;
+        // Spread stars wider since we are in 3D
+        let x = (seed.sin() * 10000.0).fract() * 3000.0 - 1500.0;
         let y = (seed.cos() * 10000.0).fract() * 2000.0 - 1000.0;
         let size_seed = i as f32 * 7.1234;
-        let size = (size_seed.sin() * 10000.0).fract() * 2.0 + 0.5;
+        let size = (size_seed.sin() * 10000.0).fract() * 2.0 + 1.0; // Slightly larger stars
         let brightness_seed = i as f32 * 3.4567;
         let brightness = (brightness_seed.sin() * 10000.0).fract() * 0.5 + 0.5;
 
@@ -959,7 +955,7 @@ pub fn spawn_opening_crawl(mut commands: Commands) {
                 custom_size: Some(Vec2::new(size, size)),
                 ..default()
             },
-            Transform::from_xyz(x, y, -5.0),
+            Transform::from_xyz(x, y, -200.0), // Further back
             GlobalTransform::default(),
             Visibility::Visible,
             InheritedVisibility::default(),
@@ -968,77 +964,72 @@ pub fn spawn_opening_crawl(mut commands: Commands) {
         ));
     }
 
-    // The opening text (with grammar fixes)
+    // The opening text
     let opening_text = "The Breadman was working in his Bakery, shouting at other bakers and clerks as usual. He thought of himself as the best baker in the country, therefore lots of breads were being thrown away if they didn't meet his satisfaction. He always refused to give the ugly breads to the poor either, since he considered his bread as a form of art and arts shouldn't be thrown away to the poor ass bitches.";
 
-    // Format text with line breaks for better readability
-    let formatted_text = opening_text
-        .split(". ")
-        .map(|s| if s.ends_with('.') { s.to_string() } else { format!("{}.", s) })
-        .collect::<Vec<_>>()
-        .join("\n\n");
+    // Manual word wrapping
+    let words: Vec<&str> = opening_text.split_whitespace().collect();
+    let mut wrapped_lines = Vec::new();
+    let mut current_line = String::new();
+    let max_chars = 40;
+
+    for word in words {
+        if current_line.len() + word.len() + 1 > max_chars {
+            wrapped_lines.push(current_line);
+            current_line = String::new();
+        }
+        if !current_line.is_empty() {
+            current_line.push(' ');
+        }
+        current_line.push_str(word);
+    }
+    if !current_line.is_empty() {
+        wrapped_lines.push(current_line);
+    }
+    let formatted_text = wrapped_lines.join("\n\n");
     
-    // Create the root container for the crawl screen
-    commands
-        .spawn((
-            Node {
-                width: percent(100.0),
-                height: percent(100.0),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::FlexStart,
-                align_items: AlignItems::Center,
-                overflow: Overflow::clip(),
-                ..default()
-            },
-            OpeningCrawlScreen,
-        ))
-        .with_children(|parent| {
-            // Create a container for the scrolling text positioned below the screen
-            parent
-                .spawn((
-                    Node {
-                        width: px(800.0),
-                        height: px(2000.0), // Extra height to allow scrolling
-                        flex_direction: FlexDirection::Column,
-                        justify_content: JustifyContent::FlexStart,
-                        align_items: AlignItems::Center,
-                        padding: UiRect::all(px(20.0)),
-                        position_type: PositionType::Absolute,
-                        top: Val::Px(-600.0), // Start below screen
-                        left: Val::Percent(50.0),
-                        ..default()
-                    },
-                    CrawlTextContainer {
-                        scroll_position: -600.0,
-                    },
-                ))
-                .with_children(|text_parent| {
-                    // Add the text with proper formatting
-                    text_parent.spawn((
-                        Text::new(formatted_text),
-                        TextFont {
-                            font_size: 36.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgb(1.0, 0.9, 0.0)), // Yellow/gold color like Star Wars
-                        CrawlText,
-                    ));
-                });
-        });
+    // Spawn the text as a World object (not UI) with rotation
+    commands.spawn((
+        Text::new(formatted_text),
+        TextFont {
+            font_size: 48.0, // Larger font for world space
+            ..default()
+        },
+        TextColor(Color::srgb(1.0, 0.8, 0.0)), // Gold color
+        TextLayout::new(Justify::Center, LineBreak::NoWrap),
+        CrawlText,
+        CrawlTextContainer {
+            scroll_position: -400.0, // Start below
+        },
+        OpeningCrawlScreen,
+        // Rotate around X axis to tilt it back
+        Transform::from_xyz(0.0, -400.0, 0.0)
+            .with_rotation(Quat::from_rotation_x(-50.0_f32.to_radians())),
+        GlobalTransform::default(),
+        Visibility::Visible,
+        InheritedVisibility::default(),
+        ViewVisibility::default(),
+    ));
 }
 
-/// Animates the crawl text scrolling upward
+/// Animates the crawl text scrolling upward in 3D space
 pub fn animate_crawl_text(
     time: Res<Time>,
-    mut text_container_query: Query<(&mut CrawlTextContainer, &mut Node)>,
+    mut text_query: Query<(&mut CrawlTextContainer, &mut Transform), With<CrawlText>>,
 ) {
-    // Scroll speed (pixels per second)
-    let scroll_speed = 60.0;
+    // Scroll speed
+    let scroll_speed = 30.0;
     
-    // Move the text container upward to create scrolling effect
-    for (mut container, mut node) in text_container_query.iter_mut() {
+    for (mut container, mut transform) in text_query.iter_mut() {
         container.scroll_position += scroll_speed * time.delta_secs();
-        node.top = Val::Px(container.scroll_position);
+        
+        // Move along the local Y axis (up and away due to rotation)
+        // We use the scroll position to determine the translation along the local Y
+        let up = transform.rotation * Vec3::Y;
+        
+        // Update position: Start at base and move up
+        // But simpler: just add speed to translation along local Y
+        transform.translation += up * scroll_speed * time.delta_secs();
     }
 }
 
