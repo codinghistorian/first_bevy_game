@@ -931,23 +931,30 @@ pub fn spawn_opening_crawl(mut commands: Commands) {
     // Set black background
     commands.insert_resource(ClearColor(Color::srgb(0.0, 0.0, 0.0)));
 
-    // Spawn a 2D camera for the crawl effect
+    // Spawn a 3D camera with perspective projection for Star Wars effect
     commands.spawn((
-        Camera2d::default(),
-        Transform::from_xyz(0.0, 0.0, 0.0),
+        Camera3d::default(),
+        Camera {
+            order: 0,
+            ..default()
+        },
+        // Position camera to look down at the tilted text plane
+        Transform::from_xyz(0.0, 50.0, 200.0).looking_at(Vec3::new(0.0, -100.0, -200.0), Vec3::Y),
         GlobalTransform::default(),
     ));
 
-    // Spawn stars in the background
-    for i in 0..200 {
+    // Spawn stars in the background - create a starfield around the text plane
+    for i in 0..300 {
         let seed = i as f32 * 12.9898;
-        // Spread stars wider since we are in 3D
-        let x = (seed.sin() * 10000.0).fract() * 3000.0 - 1500.0;
+        // Create stars in a large 3D volume around the camera
+        let x = (seed.sin() * 10000.0).fract() * 2000.0 - 1000.0;
         let y = (seed.cos() * 10000.0).fract() * 2000.0 - 1000.0;
+        let z = ((i as f32 * 7.1234).sin() * 10000.0).fract() * 800.0 - 400.0;
+
         let size_seed = i as f32 * 7.1234;
-        let size = (size_seed.sin() * 10000.0).fract() * 2.0 + 1.0; // Slightly larger stars
+        let size = (size_seed.sin() * 10000.0).fract() * 3.0 + 0.5;
         let brightness_seed = i as f32 * 3.4567;
-        let brightness = (brightness_seed.sin() * 10000.0).fract() * 0.5 + 0.5;
+        let brightness = (brightness_seed.sin() * 10000.0).fract() * 0.7 + 0.3;
 
         commands.spawn((
             Sprite {
@@ -955,7 +962,7 @@ pub fn spawn_opening_crawl(mut commands: Commands) {
                 custom_size: Some(Vec2::new(size, size)),
                 ..default()
             },
-            Transform::from_xyz(x, y, -200.0), // Further back
+            Transform::from_xyz(x, y, z),
             GlobalTransform::default(),
             Visibility::Visible,
             InheritedVisibility::default(),
@@ -967,15 +974,15 @@ pub fn spawn_opening_crawl(mut commands: Commands) {
     // The opening text
     let opening_text = "The Breadman was working in his Bakery, shouting at other bakers and clerks as usual. He thought of himself as the best baker in the country, therefore lots of breads were being thrown away if they didn't meet his satisfaction. He always refused to give the ugly breads to the poor either, since he considered his bread as a form of art and arts shouldn't be thrown away to the poor ass bitches.";
 
-    // Manual word wrapping
+    // Manual word wrapping into a single multi-line string
     let words: Vec<&str> = opening_text.split_whitespace().collect();
-    let mut wrapped_lines = Vec::new();
+    let mut lines = Vec::new();
     let mut current_line = String::new();
     let max_chars = 40;
 
     for word in words {
         if current_line.len() + word.len() + 1 > max_chars {
-            wrapped_lines.push(current_line);
+            lines.push(current_line);
             current_line = String::new();
         }
         if !current_line.is_empty() {
@@ -984,15 +991,20 @@ pub fn spawn_opening_crawl(mut commands: Commands) {
         current_line.push_str(word);
     }
     if !current_line.is_empty() {
-        wrapped_lines.push(current_line);
+        lines.push(current_line);
     }
-    let formatted_text = wrapped_lines.join("\n\n");
-    
-    // Spawn the text as a 2D text object with rotation
+
+    let formatted_text = lines.join("\n\n");
+
+    // Single text plane, tilted back like the Star Wars crawl.
+    // Start well below the bottom of the screen so the crawl rises into view.
+    let text_transform = Transform::from_translation(Vec3::new(0.0, -320.0, -150.0))
+        .with_rotation(Quat::from_rotation_x(-30.0_f32.to_radians()));
+
     commands.spawn((
         Text2d::new(formatted_text),
         TextFont {
-            font_size: 48.0, // Larger font for world space
+            font_size: 40.0,
             ..default()
         },
         TextColor(Color::srgb(1.0, 0.8, 0.0)), // Gold color
@@ -1002,24 +1014,26 @@ pub fn spawn_opening_crawl(mut commands: Commands) {
             scroll_position: 0.0,
         },
         OpeningCrawlScreen,
-        // Position below screen initially
-        Transform::from_xyz(0.0, -400.0, 0.0),
+        text_transform,
         Visibility::Visible,
     ));
 }
 
-/// Animates the crawl text scrolling upward
+/// Animates the crawl text scrolling upward along the tilted plane
 pub fn animate_crawl_text(
     time: Res<Time>,
     mut text_query: Query<(&mut CrawlTextContainer, &mut Transform), With<CrawlText>>,
 ) {
-    const BASE_Y: f32 = -400.0;
-    const SCROLL_SPEED: f32 = 60.0;
+    const SCROLL_SPEED: f32 = 25.0; // world units per second
 
     for (mut container, mut transform) in text_query.iter_mut() {
         container.scroll_position += SCROLL_SPEED * time.delta_secs();
-        let y_position = BASE_Y + container.scroll_position;
-        transform.translation.y = y_position;
+
+        // Move "up" in the text's local space so the perspective and tilt are preserved.
+        // This is the key to the Star Wars-style crawl: the whole text plane slides away
+        // from the camera along its tilted surface.
+        let local_up = transform.rotation * Vec3::Y;
+        transform.translation += local_up * SCROLL_SPEED * time.delta_secs();
     }
 }
 
@@ -1083,12 +1097,12 @@ impl Plugin for GameMenuPlugin {
                     despawn_screen::<OpeningCrawlScreen>,
                     |mut commands: Commands,
                      star_query: Query<Entity, With<Star>>,
-                     camera_query: Query<Entity, (With<Camera2d>, Without<UiCamera>)>| {
+                     camera_query: Query<Entity, (With<Camera3d>, Without<UiCamera>)>| {
                         // Despawn all stars
                         for star_entity in star_query.iter() {
                             commands.entity(star_entity).despawn();
                         }
-                        // Despawn the camera used for crawl
+                        // Despawn the 3D camera used for crawl
                         for camera_entity in camera_query.iter() {
                             commands.entity(camera_entity).despawn();
                         }
