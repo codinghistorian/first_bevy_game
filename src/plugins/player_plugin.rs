@@ -1,4 +1,6 @@
-use crate::components::boss::{Boss, BossHealthBarContainer, BossRegistry};
+use crate::components::boss::{
+    Boss, BossHealthBarContainer, BossProjectile, BossRegistry,
+};
 use crate::components::player::{
     BoundaryWall, ChargeEffect, Floor, HealthBar, HealthBarBackground, HealthBarMask, Player,
     Projectile,
@@ -7,16 +9,16 @@ use crate::stages::game_menu::{
     BackgroundImage, CurrentStage, GameState, PlayerUpgrades, despawn_screen,
 };
 use crate::systems::boss::{
-    BossPatternRegistry, BossProjectile, boss_attacks, boss_movement, boss_projectile_movement,
-    boss_projectile_player_collision, load_stage_boss_pattern, setup_boss_hp_bar,
+    BossPatternRegistry, apply_boss_knockback, boss_attacks, boss_movement,
+    boss_projectile_movement, boss_projectile_player_collision, load_stage_boss_pattern,
+    setup_boss_hp_bar, spawn_boss,
 };
 use crate::systems::boundaries::spawn_boundaries;
 use crate::systems::player::{
-    animate_charge_effect, animate_sprite, apply_boss_knockback, apply_knockback, change_health,
-    check_game_outcome, invincibility_blink, manage_charge_effect, persist_player_hp,
-    player_boss_collision, player_movement, player_shooting, projectile_boss_collision,
-    projectile_movement, setup_player_hp_bar, spawn_boss, spawn_player_and_level,
-    update_health_bars, update_invincibility_timers,
+    animate_charge_effect, animate_sprite, apply_knockback, change_health, check_game_outcome,
+    invincibility_blink, manage_charge_effect, persist_player_hp, player_boss_collision,
+    player_movement, player_shooting, projectile_boss_collision, projectile_movement,
+    setup_player_hp_bar, spawn_player_and_level, update_health_bars, update_invincibility_timers,
 };
 use bevy::prelude::*;
 

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// Marker component for boss entities
 #[derive(Component)]
@@ -54,8 +55,38 @@ impl Default for BossData {
     }
 }
 
+/// Vec2 configuration for JSON
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Vec2Config {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl From<Vec2Config> for Vec2 {
+    fn from(v: Vec2Config) -> Self {
+        Vec2::new(v.x, v.y)
+    }
+}
+
+impl From<Vec2> for Vec2Config {
+    fn from(v: Vec2) -> Self {
+        Self { x: v.x, y: v.y }
+    }
+}
+
+/// Individual attack action in a sequence
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AttackAction {
+    pub action_type: String,           // "shoot", "wait", "burst", etc.
+    pub direction: Option<Vec2Config>, // Direction to shoot
+    pub count: Option<u32>,            // Number of shots
+    pub delay: Option<f32>,            // Delay before next action
+    pub spread: Option<f32>,           // Spread angle for multi-shot
+}
+
 /// Attack pattern types for bosses
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum AttackPattern {
     /// No attacks
     None,
@@ -63,6 +94,7 @@ pub enum AttackPattern {
     SingleShot {
         cooldown: f32,
         projectile_speed: f32,
+        #[serde(default)]
         cardinal_only: bool,
     },
     /// Triple shot pattern
@@ -77,6 +109,11 @@ pub enum AttackPattern {
         projectile_speed: f32,
         burst_count: u32,
         burst_delay: f32,
+    },
+    /// Pattern with multiple actions in sequence
+    Sequence {
+        actions: Vec<AttackAction>,
+        loop_pattern: bool,
     },
     /// Custom pattern (extend as needed)
     Custom {
@@ -96,7 +133,8 @@ impl Default for AttackPattern {
 }
 
 /// Movement pattern types for bosses
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum MovementPattern {
     /// Stationary boss
     Stationary,
@@ -114,9 +152,15 @@ pub enum MovementPattern {
     },
     /// Circular movement
     Circular {
-        center: Vec2,
+        center: Vec2Config,
         radius: f32,
         speed: f32,
+    },
+    /// Pattern with multiple waypoints
+    Waypoint {
+        waypoints: Vec<Vec2Config>,
+        speed: f32,
+        loop_path: bool,
     },
     /// Custom movement (extend as needed)
     Custom,
@@ -202,4 +246,11 @@ impl BossRegistry {
     pub fn get_boss_data(&self, boss_type: BossType) -> Option<&BossData> {
         self.bosses.iter().find(|boss| boss.boss_type == boss_type)
     }
+}
+
+/// Component for boss projectiles
+#[derive(Component)]
+pub struct BossProjectile {
+    pub damage: f32,
+    pub speed: f32,
 }

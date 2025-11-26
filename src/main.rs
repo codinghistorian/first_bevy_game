@@ -1,6 +1,7 @@
 use bevy::{asset::AssetPlugin, prelude::*};
 
 mod components;
+mod config;
 mod plugins;
 mod stages;
 mod systems;

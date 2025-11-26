@@ -1,5 +1,5 @@
 use crate::components::player::BoundaryWall;
-use crate::systems::config::{
+use crate::config::gameplay::{
     BOUNDARY_BOTTOM, BOUNDARY_LEFT, BOUNDARY_RIGHT, BOUNDARY_TOP, BOUNDARY_WALL_THICKNESS,
 };
 use bevy::prelude::*;
