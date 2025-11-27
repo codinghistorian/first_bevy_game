@@ -1,5 +1,5 @@
 use crate::components::player::{
-    AnimationIndices, AnimationState, AnimationTimer, ChargeShot, Floor, Hp, JumpCharge, JumpType,
+    AnimationFrameIndex, AnimationState, AnimationTimer, ChargeShot, Floor, Hp, JumpCharge, JumpType,
     Player, PlayerAnimationConfig, PlayerVelocity, Shooting,
 };
 use crate::stages::game_menu::{PlayerUpgrades, SelectedCharacter};
@@ -11,7 +11,6 @@ pub fn spawn_player_and_level(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
-    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     selected_character: Res<SelectedCharacter>,
     player_upgrades: Option<Res<PlayerUpgrades>>,
 ) {
@@ -73,46 +72,30 @@ pub fn spawn_player_and_level(
     let start_transform = Transform::from_xyz(0.0, -198.0, 1.0);
 
     if matches!(*selected_character, SelectedCharacter::Breadman) {
-        // Use sprite sheet for Breadman
-        let texture_handle = asset_server.load("images/breadman/megaman_sheet.png");
-        
-        // Create a custom layout since the sprite sheet is not a uniform grid
-        // The image is 349x381, so we use that as the total size
-        let mut layout = TextureAtlasLayout::new_empty(UVec2::new(349, 381));
+        // Load individual animation frames for Breadman
+        let idle_frames = vec![
+            asset_server.load("images/breadman/idle_1.png"),
+            asset_server.load("images/breadman/idle_2.png"),
+        ];
+        let run_frames = vec![
+            asset_server.load("images/breadman/run_1.png"),
+            asset_server.load("images/breadman/run_2.png"),
+            asset_server.load("images/breadman/run_3.png"),
+        ];
+        let jump_frames = vec![
+            asset_server.load("images/breadman/jump.png"),
+        ];
 
-        // --- DEFINE SPRITE COORDINATES HERE ---
-        // TODO: You must measure your sprites in the PNG and put the exact coordinates here.
-        // Format: URect::new(left_x, top_y, right_x, bottom_y)
-        
-        // 1. IDLE FRAME (Standing still)
-        let idle_idx = layout.add_texture(URect::new(10, 10, 42, 42)); // Placeholder coords
-
-        // 2. RUN FRAMES (Running animation)
-        // Add each frame of the run animation in order
-        let run_start = layout.add_texture(URect::new(50, 10, 82, 42)); // Run frame 1
-        let _         = layout.add_texture(URect::new(90, 10, 122, 42)); // Run frame 2
-        let run_end   = layout.add_texture(URect::new(130, 10, 162, 42)); // Run frame 3
-
-        // 3. JUMP FRAME
-        let jump_idx = layout.add_texture(URect::new(10, 50, 42, 82)); // Jump frame
-
-        let layout_handle = texture_atlas_layouts.add(layout);
-
-        // Define animation configuration using the indices we just created
         let animation_config = PlayerAnimationConfig {
-            idle: AnimationIndices { first: idle_idx, last: idle_idx },
-            run: AnimationIndices { first: run_start, last: run_end },
-            jump: AnimationIndices { first: jump_idx, last: jump_idx },
+            idle: idle_frames,
+            run: run_frames,
+            jump: jump_frames,
         };
 
         commands.spawn((
             Sprite {
-                image: texture_handle,
-                texture_atlas: Some(TextureAtlas {
-                    layout: layout_handle,
-                    index: animation_config.idle.first,
-                }),
-                custom_size: Some(Vec2::new(64.0, 64.0)), // Scale up to match hit box size approx
+                image: animation_config.idle[0].clone(), // Start with first idle frame
+                custom_size: Some(Vec2::new(64.0, 64.0)),
                 ..default()
             },
             start_transform,
@@ -120,6 +103,7 @@ pub fn spawn_player_and_level(
             animation_config,
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
             AnimationState::Idle,
+            AnimationFrameIndex { current: 0 }, // Track current frame
         ));
     } else {
         // Use rectangle for other characters (Cheeseman)

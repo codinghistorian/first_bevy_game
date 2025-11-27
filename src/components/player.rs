@@ -134,19 +134,21 @@ pub enum AnimationState {
     Shoot, // Optional, if we have shooting frames
 }
 
-#[derive(Component)]
-pub struct AnimationIndices {
-    pub first: usize,
-    pub last: usize,
-}
+// AnimationIndices is deprecated - replaced by AnimationFrameIndex and Vec<Handle<Image>>
 
 #[derive(Component, Deref, DerefMut)]
 pub struct AnimationTimer(pub Timer);
 
 #[derive(Component)]
 pub struct PlayerAnimationConfig {
-    pub idle: AnimationIndices,
-    pub run: AnimationIndices,
-    pub jump: AnimationIndices,
-    // We can add more later like 'shoot', 'climb', etc.
+    pub idle: Vec<Handle<Image>>,      // Vector of image handles for idle frames
+    pub run: Vec<Handle<Image>>,       // Vector of image handles for run frames
+    pub jump: Vec<Handle<Image>>,      // Vector of image handles for jump frames
+    // Future: pub shoot: Vec<Handle<Image>>,
+}
+
+/// Component to track current frame index for animations
+#[derive(Component)]
+pub struct AnimationFrameIndex {
+    pub current: usize,  // Current frame index for the active animation
 }

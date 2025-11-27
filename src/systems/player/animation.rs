@@ -1,5 +1,5 @@
 use crate::components::player::{
-    AnimationState, AnimationTimer, PlayerAnimationConfig,
+    AnimationFrameIndex, AnimationState, AnimationTimer, PlayerAnimationConfig,
 };
 use bevy::prelude::*;
 
@@ -10,28 +10,31 @@ pub fn animate_sprite(
         &mut Sprite,
         &AnimationState,
         &PlayerAnimationConfig,
+        &mut AnimationFrameIndex,
     )>,
 ) {
-    for (mut timer, mut sprite, state, config) in &mut query {
+    for (mut timer, mut sprite, state, config, mut frame_index) in &mut query {
         timer.tick(time.delta());
+
         if timer.just_finished() {
-            let indices = match state {
+            // Get the appropriate frame list based on current state
+            let frames = match state {
                 AnimationState::Idle => &config.idle,
                 AnimationState::Run => &config.run,
                 AnimationState::Jump => &config.jump,
                 _ => &config.idle,
             };
 
-            if let Some(atlas) = &mut sprite.texture_atlas {
-                if atlas.index < indices.first || atlas.index > indices.last {
-                    atlas.index = indices.first;
-                } else {
-                    atlas.index += 1;
-                    if atlas.index > indices.last {
-                        atlas.index = indices.first;
-                    }
-                }
+            // Skip if no frames available
+            if frames.is_empty() {
+                continue;
             }
+
+            // Advance to next frame
+            frame_index.current = (frame_index.current + 1) % frames.len();
+
+            // Update sprite image
+            sprite.image = frames[frame_index.current].clone();
         }
     }
 }
