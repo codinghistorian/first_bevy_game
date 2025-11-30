@@ -31,8 +31,10 @@ pub struct SelectedCharacterIndex(pub usize);
 pub struct CharacterSelectionMenu;
 
 /// Spawns the character selection menu UI when entering the CharacterSelection state
-pub fn spawn_character_selection_menu(mut commands: Commands) {
+pub fn spawn_character_selection_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     use bevy::color::palettes::basic::{BLACK, WHITE};
+
+    let breadman_image = asset_server.load("images/breadman/character_select.jpg");
 
     // Create two character boxes
     let breadman_entity = commands
@@ -54,6 +56,16 @@ pub fn spawn_character_selection_menu(mut commands: Commands) {
             CharacterButton::Breadman,
         ))
         .with_children(|parent| {
+            // Character Image
+            parent.spawn((
+                ImageNode::new(breadman_image),
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(70.0), // Take up most of the button
+                    ..default()
+                },
+            ));
+
             // Character name
             parent.spawn((
                 Text::new("Breadman"),
