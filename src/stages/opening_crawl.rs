@@ -66,7 +66,7 @@ pub fn spawn_opening_crawl(mut commands: Commands) {
     }
 
     // The opening text
-    let opening_text = "The Breadman was working in his Bakery, shouting at other bakers and clerks as usual. He thought of himself as the best baker in the country, therefore lots of breads were being thrown away if they didn't meet his satisfaction. He always refused to give the ugly breads to the poor either, since he considered his bread as a form of art and arts shouldn't be thrown away to the poor ass bitches.";
+    let opening_text = "A long time ago in a bakery far, far away... The Breadman was working in his Bakery when suddenly he was attacked by possessed foods! The Demon Food Lord had contaminated the souls of breads, cakes, pies, and pastries, turning them into vengeful spirits. Cookies crumbled into weapons, cakes rose up to smother him, and donuts rolled like deadly wheels of destruction!";
 
     // Manual word wrapping into a single multi-line string
     let words: Vec<&str> = opening_text.split_whitespace().collect();
